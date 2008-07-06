@@ -11,10 +11,6 @@ class TransportMount(type):
             # If we are a plugin implementation, append to the list.
             cls.transports.append(cls)
 
-    def get_modules(self, *args, **kwargs):
-        """Return a list of instantiated transport classes."""
-        return [module(*args, **kwargs) for module in self.transports]
-
 class TransportInterface:
     """Parent class for transport classes."""
     __metaclass__ = TransportMount
