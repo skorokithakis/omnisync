@@ -14,8 +14,14 @@ class File(TransportInterface):
     # listdir_attributes is a tuple that contains the file attributes that listdir()
     # supports.
     listdir_attributes = set()
-    # Conversely, for stat().
-    stat_attributes = set(("size", "mtime", "atime", "ctime"))
+    # Conversely, for getattr().
+    # TODO: Get/set as many attributes as possible.
+    getattr_attributes = set(("size", "mtime"))
+    # List the attributes setattr() can set.
+    setattr_attributes = set(("mtime", ))
+    # Define attributes that can be used to decide whether a file has been changed
+    # or not.
+    evaluation_attributes = set(("size", "mtime"))
     # The preferred buffer size for reads/writes.
     buffer_size = 2**15
 
@@ -55,7 +61,12 @@ class File(TransportInterface):
 
     def remove(self, url):
         """Remove the specified file/directory."""
-        os.remove(self.__get_filename(url))
+        try:
+            os.remove(self.__get_filename(url))
+        except (OSError, WindowsError):
+            return False
+        else:
+            return True
 
     def close(self):
         """Close the open file."""
@@ -83,23 +94,25 @@ class File(TransportInterface):
            does not exist."""
         return os.path.isdir(self.__get_filename(url))
 
-    def stat(self, url):
-        """Retrieve various file/directory attributes.
+    def getattr(self, url, attributes):
+        """Retrieve (at least) the requested file attributes.
 
-        Returns a dictionary whose keys are the items of stat_attributes.
+        Returns a dictionary whose keys are the items of attributes.
         """
+        if set(attributes) - self.getattr_attributes:
+            raise NotImplementedError, "Some requested attributes are not implemented."
         try:
             statinfo = os.stat(self.__get_filename(url))
         except (OSError, WindowsError):
             return {"size": None, "mtime": None}
         return {"size": statinfo.st_size, "mtime": statinfo.st_mtime}
 
-    def exists(self, url):
-        """Return true if a given path exists."""
-        return os.path.exists(self.__get_filename(url))
-
     def setattr(self, url, attributes):
         """Set a file's attributes if possible."""
         # We can only set mtime here.
         if "mtime" in attributes:
             os.utime(self.__get_filename(url), (time.time(), attributes["mtime"]))
+
+    def exists(self, url):
+        """Return true if a given path exists."""
+        return os.path.exists(self.__get_filename(url))
