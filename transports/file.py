@@ -10,7 +10,7 @@ class File(TransportInterface):
     """Plain file access class."""
     # Transports should declare the protocols attribute to specify the protocol(s)
     # they can handle.
-    protocols = ("file", )
+    protocols = ("file", "ftp")
     # listdir_attributes is a tuple that contains the file attributes that listdir()
     # supports.
     listdir_attributes = set()
@@ -37,7 +37,10 @@ class File(TransportInterface):
            filesystem."""
 
     def open(self, url, mode):
-        """Open a file in _mode_ to prepare for reading."""
+        """Open a file in _mode_ to prepare for reading.
+
+           Raises IOError if anything goes wrong.
+        """
         if self.file_handle:
             raise IOError, "Another file is already open."
         self.file_handle = open(self.__get_filename(url), mode)

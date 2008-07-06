@@ -50,7 +50,10 @@ class OmniSync:
         self.transports = {}
         for transport in TransportInterface.transports:
             for protocol in transport.protocols:
-                self.transports[protocol] = transport
+                if protocol in self.transports:
+                    logging.warning("Protocol %s already handled, ignoring." % protocol)
+                else:
+                    self.transports[protocol] = transport
 
     def check_locations(self):
         """Check that the two locations are suitable for synchronisation."""
@@ -175,22 +178,31 @@ class OmniSync:
                 logging.debug("Source and destination %s was different (%s vs %s)." %\
                               (key, source_attributes[key], destination_attributes[key]))
                 logging.info("Copying \"%s\" to \"%s\"..." % (source, destination))
-                self.copy_file(source, destination)
-                self.destination_transport.setattr(destination, source_attributes)
-                return True
+                if self.copy_file(source, destination):
+                    # If the file was successfully copied, set its attributes.
+                    self.destination_transport.setattr(destination, source_attributes)
+                    return True
         else:
             # The two files are identical, skip them.
             logging.info("Files \"%s\" and \"%s\" are identical, skipping..." %
                          (source, destination))
-            return False
+        return False
 
     def copy_file(self, source, destination):
         """Copy a file."""
         # Select the smallest buffer size of the two, to avoid congestion.
         buffer_size = min(self.source_transport.buffer_size,
                           self.destination_transport.buffer_size)
-        self.source_transport.open(source, "rb")
-        self.destination_transport.open(destination, "wb")
+        try:
+            self.source_transport.open(source, "rb")
+        except IOError:
+            logging.error("Could not open %s, skipping..." % source)
+            return False
+        try:
+            self.destination_transport.open(destination, "wb")
+        except IOError:
+            logging.error("Could not open %s, skipping..." % destination)
+            return False
         data = self.source_transport.read(buffer_size)
         while data:
             self.destination_transport.write(data)
