@@ -62,13 +62,25 @@ class OmniSync:
         # Check if both locations are of the same type.
         source_isdir = self.source_transport.isdir(self.source)
         destination_isdir = self.destination.endswith("/")
+        leave = False
         if source_isdir and not destination_isdir:
             logging.error("Source is a directory but destination is a file, aborting.")
-            return False
+            leave = True
+        elif self.source.startswith(self.destination) and source_isdir:
+            logging.error("The destination directory is a parent of the source directory.")
+            leave = True
+        elif not hasattr(self.source_transport, "read"):
+            logging.error("The source protocol is write-only.")
+            leave = True
+        elif not hasattr(self.source_transport, "write"):
+            logging.error("The destination protocol is read-only.")
+            leave = True
+        elif not hasattr(self.destination_transport, "remove") and self.configuration.delete:
+            logging.error("The destination protocol does not support file deletion.")
+            leave = True
 
-        if self.source.startswith(self.destination) and source_isdir:
-            logging.error("You can't sync a directory to its parent!")
-            return
+        if leave:
+            return False
 
         if not self.destination_transport.exists(self.destination):
             if self.destination.endswith("/"):
@@ -85,8 +97,16 @@ class OmniSync:
         self.destination = normalise_url(destination)
 
         # Instantiate the transports.
-        self.source_transport = self.transports[urlparse.urlsplit(self.source)[0]]()
-        self.destination_transport = self.transports[urlparse.urlsplit(self.destination)[0]]()
+        try:
+            self.source_transport = self.transports[urlparse.urlsplit(self.source)[0]]()
+        except KeyError:
+            logging.error("Protocol not supported: %s." % urlparse.urlsplit(self.source)[0])
+            return
+        try:
+            self.destination_transport = self.transports[urlparse.urlsplit(self.destination)[0]]()
+        except KeyError:
+            logging.error("Protocol not supported: %s." % urlparse.urlsplit(self.destination)[0])
+            return
 
         # Give the transports a chance to connect to their servers.
         self.source_transport.connect(self.source)
