@@ -22,7 +22,6 @@ class Configuration:
         elif options.verbosity == 2:
             logging.getLogger().setLevel(logging.DEBUG)
         self.delete = options.delete
-        print self.delete
 
 
 class OmniSync:
@@ -67,6 +66,10 @@ class OmniSync:
             logging.error("Source is a directory but destination is a file, aborting.")
             return False
 
+        if self.source.startswith(self.destination) and source_isdir:
+            logging.error("You can't sync a directory to its parent!")
+            return
+
         if not self.destination_transport.exists(self.destination):
             if self.destination.endswith("/"):
                 logging.debug("The destination location \"%s\" does not exist, creating." %
@@ -81,11 +84,13 @@ class OmniSync:
         self.source = normalise_url(source)
         self.destination = normalise_url(destination)
 
-        logging.info("Preparing to sync \"%s\" to \"%s\"..." % (self.source, self.destination))
-
         # Instantiate the transports.
         self.source_transport = self.transports[urlparse.urlsplit(self.source)[0]]()
         self.destination_transport = self.transports[urlparse.urlsplit(self.destination)[0]]()
+
+        # Give the transports a chance to connect to their servers.
+        self.source_transport.connect(self.source)
+        self.destination_transport.connect(self.destination)
 
         # These are the most attributes we can expect from stat calls in these two protocols.
         self.max_attributes = (self.source_transport.stat_attributes &
@@ -96,6 +101,9 @@ class OmniSync:
 
         # Begin the actual synchronisation.
         self.recurse()
+
+        self.source_transport.disconnect()
+        self.destination_transport.disconnect()
 
     def recurse(self):
         """Recursively synchronise everything."""
