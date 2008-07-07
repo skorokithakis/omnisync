@@ -6,6 +6,11 @@ import os
 import urlparse
 import time
 
+try:
+    OSERROR = WindowsError
+except NameError:
+    OSERROR = OSError
+
 class File(TransportInterface):
     """Plain file access class."""
     # Transports should declare the protocols attribute to specify the protocol(s)
@@ -63,7 +68,7 @@ class File(TransportInterface):
         """Remove the specified file/directory."""
         try:
             os.remove(self.__get_filename(url))
-        except (OSError, WindowsError):
+        except OSERROR: 
             return False
         else:
             return True
@@ -86,7 +91,7 @@ class File(TransportInterface):
         """
         try:
             return [(x, {}) for x in os.listdir(self.__get_filename(url))]
-        except (OSError, WindowsError):
+        except OSERROR:
             return False
 
     def isdir(self, url):
@@ -103,7 +108,7 @@ class File(TransportInterface):
             raise NotImplementedError, "Some requested attributes are not implemented."
         try:
             statinfo = os.stat(self.__get_filename(url))
-        except (OSError, WindowsError):
+        except OSERROR:
             return {"size": None, "mtime": None}
         return {"size": statinfo.st_size, "mtime": statinfo.st_mtime}
 

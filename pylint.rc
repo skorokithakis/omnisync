@@ -178,16 +178,15 @@ acquired-members=REQUEST,acl_users,aq_parent
 #
 [VARIABLES]
 
-# Tells wether we should check for unused import in __init__ files.
+# Tells whether we should check for unused import in __init__ files.
 init-import=no
 
 # A regular expression matching names used for dummy variables (i.e. not used).
 dummy-variables-rgx=_|dummy
 
 # List of additional names supposed to be defined in builtins. Remember that
-
 # you should avoid to define new builtins when possible.
-additional-builtins=
+additional-builtins=WindowsError
 
 
 # checks for :
