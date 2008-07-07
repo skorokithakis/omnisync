@@ -189,18 +189,18 @@ class OmniSync:
             src_attrs.update(self.source_transport.getattr(source, src_difference))
 
         # We aren't interested in the user's requested arguments for the destination.
-        our_dest_attributes = set(dest_attrs) & \
-                              self.max_evaluation_attributes
-        max_dest_attributes = self.destination_transport.getattr_attributes & \
-                              self.max_evaluation_attributes
-        dest_difference = max_dest_attributes - our_dest_attributes
+        dest_difference = (self.destination_transport.getattr_attributes - set(dest_attrs)) & \
+                           self.max_evaluation_attributes
         if dest_difference:
             # Same for the destination.
             logging.debug("Destination getattr for %s deemed necessary." % destination)
             dest_attrs.update(self.destination_transport.getattr(destination, dest_difference))
 
-        # Compare the keys that are common in both dictionaries. If one is different, copy the file.
-        for key in set(src_attrs) & set(dest_attrs):
+        # Compare the evaluation keys that are common in both dictionaries. If one is different,
+        # copy the file.
+        for key in set(src_attrs) & set(dest_attrs) & self.max_evaluation_attributes:
+            login.debug("Checking attributes \"%s\" and \"%s\"..." % \
+                        (src_attrs[key], dest_attrs[key]))
             if src_attrs[key] != dest_attrs[key]:
                 logging.debug("Source and destination %s was different (%s vs %s)." %\
                               (key, src_attrs[key], dest_attrs[key]))
