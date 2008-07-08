@@ -2,9 +2,69 @@
 
 import unittest
 import omnisync
+import urlfunctions
 
 class Tests(unittest.TestCase):
     """Various omnisync unit tests."""
+
+    def test_append_slash(self):
+        """Test append_slash."""
+        tests = (
+            (("file:///home/user/", True), "file:///home/user/"),
+            (("file:///home/user/", False), "file:///home/user"),
+            (("file:///home/user/", True), "file:///home/user/"),
+            (("file:///home/user", False), "file:///home/user"),
+        )
+        for test, expected_output in tests:
+            self.assertEqual(urlfunctions.append_slash(*test), expected_output)
+
+    def test_prepend_slash(self):
+        """Test append_slash."""
+        tests = (
+            (("/home/user/", True), "/home/user/"),
+            (("/home/user/", False), "home/user/"),
+            (("home/user/", True), "/home/user/"),
+            (("home/user/", False), "home/user/"),
+        )
+        for test, expected_output in tests:
+            self.assertEqual(urlfunctions.prepend_slash(*test), expected_output)
+
+    def test_url_join(self):
+        """Test url_join."""
+        tests = (
+            (("file://C:/test/file",
+              "file://C:/test/file/some/other/dir",
+              "file://C:/test/"),
+             "file://C:/test/some/other/dir",
+             ),
+            (("file://C:/test/file",
+              "file://C:/test/file/some/other/dir",
+              "ftp://C:/test/"),
+             "ftp://C:/test/some/other/dir",
+             ),
+            (("file://C:/test/file",
+              "file://C:/test/file/some/other/dir",
+              "file://C:/test/"),
+             "file://C:/test/some/other/dir",
+             ),
+            (("file://C:/test/file/",
+              "file://C:/test/file/some/other/dir/",
+              "file://C:/test/"),
+             "file://C:/test/some/other/dir/",
+             ),
+            (("file://C:/test/file/",
+              "file://C:/test/file/some/other/dir",
+              "file://C:/test"),
+             "file://C:/test/some/other/dir",
+             ),
+            (("ftp://C:/test/file",
+              "ftp://C:/test/file/some/other/dir",
+              "file://C:/test/"),
+             "file://C:/test/some/other/dir",
+             ),
+        )
+        for test, expected_output in tests:
+            self.assertEqual(urlfunctions.url_join(*test), expected_output)
 
     def test_urls(self):
         """Test URL normalisation."""

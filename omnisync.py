@@ -6,6 +6,7 @@ import sys
 import logging
 import optparse
 import urlparse
+from urlfunctions import url_join
 
 from version import VERSION
 from transports.transportmount import TransportInterface
@@ -152,29 +153,59 @@ class OmniSync:
 
     def recurse(self):
         """Recursively synchronise everything."""
-        # TODO: Write this to work for actual directories.
-        source_directory_list = self.source_transport.listdir(self.source)
-        source_attributes = {}
-        destination_attributes = {}
-        if source_directory_list:
-            pass
+        source_dir_list = self.source_transport.listdir(self.source)
+        if not source_dir_list:
+            # If the source is a file, rather than a directory, just copy it. We know for sure that
+            # it exists from the checks we did before, so the "False" return value can't be because
+            # of that.
+            if self.destination_transport.isdir(self.destination):
+                # A rather hackish way to get the filename for the destination.
+                if self.destination.endswith("/"):
+                    dest_filename = self.destination + self.source[self.source.rfind("/")+1:]
+                else:
+                    dest_filename = self.destination + self.source[self.source.rfind("/"):]
+                self.compare_and_copy(self.source,
+                                      dest_filename,
+                                      {"isdir": False},
+                                      {"isdir": False}
+                                     )
+            else:
+                self.compare_and_copy(self.source,
+                                      self.destination,
+                                      {"isdir": False},
+                                      {"isdir": False}
+                                     )
         else:
-            # TODO: Make absolutely sure we are passing a filename.
-            self.compare_and_copy(self.source,
-                                  self.destination,
-                                  source_attributes,
-                                  destination_attributes
-                                 )
+            directory_queue = source_dir_list
 
-    def compare_and_copy(self, source, destination, src_attrs, dest_attrs):
+            # Depth-first tree traversal.
+            while directory_queue:
+                url, attrs = directory_queue.pop()
+                if "isdir" not in attrs:
+                    attrs["isdir"] = self.source_transport.isdir(url)
+                logging.debug("URL %s is %sa directory." % \
+                              (url, not attrs["isdir"] and "not " or ""))
+                if attrs["isdir"]:
+                    directory_queue.extend(self.source_transport.listdir(url))
+                else:
+                    dest_url = url_join(self.source, url, self.destination)
+                    logging.debug("Destination URL is %s." % dest_url)
+                    self.compare_and_copy(url, dest_url, attrs, {})
+
+    def compare_and_copy(self, source, destination, src_attrs=None, dest_attrs=None):
         """Compare the attributes of two files and copy if changed.
 
-           source            - A source URL.
-           destination       - A destination URL.
+           source            - A source URL pointing to a file.
+           destination       - A destination URL pointing to a file.
            src_attrs - A dictionary containing some source attributes.
 
            Returns True if the file was copied, False otherwise.
         """
+        if src_attrs is None:
+            src_attrs = {}
+        if dest_attrs is None:
+            dest_attrs = {}
+
         # Try to gather as many attributes of both files as possible.
         our_src_attributes = (set(src_attrs) & self.max_evaluation_attributes)
         max_src_attributes = (self.source_transport.getattr_attributes &
@@ -189,6 +220,7 @@ class OmniSync:
             src_attrs.update(self.source_transport.getattr(source, src_difference))
 
         # We aren't interested in the user's requested arguments for the destination.
+        # TODO: On second thought, maybe we are, if we need to set them.
         dest_difference = (self.destination_transport.getattr_attributes - set(dest_attrs)) & \
                            self.max_evaluation_attributes
         if dest_difference:
@@ -199,15 +231,18 @@ class OmniSync:
         # Compare the evaluation keys that are common in both dictionaries. If one is different,
         # copy the file.
         for key in set(src_attrs) & set(dest_attrs) & self.max_evaluation_attributes:
-            login.debug("Checking attributes \"%s\" and \"%s\"..." % \
-                        (src_attrs[key], dest_attrs[key]))
+            logging.debug("Checking attributes \"%s\"..." % key)
+            # TODO: Check if we need to update required attributes, even if the files are otherwise
+            # the same. We need to check all the required attributes (which we hopefully have
+            # already), or just set them if that would be cheaper.
             if src_attrs[key] != dest_attrs[key]:
                 logging.debug("Source and destination %s was different (%s vs %s)." %\
                               (key, src_attrs[key], dest_attrs[key]))
                 logging.info("Copying \"%s\" to \"%s\"..." % (source, destination))
-                if not self.config.dry_run and self.copy_file(source, destination):
+                if self.copy_file(source, destination):
                     # If the file was successfully copied, set its attributes.
-                    self.destination_transport.setattr(destination, src_attrs)
+                    if not self.config.dry_run:
+                        self.destination_transport.setattr(destination, src_attrs)
                     return True
                 else:
                     return False
@@ -218,7 +253,10 @@ class OmniSync:
             return False
 
     def copy_file(self, source, destination):
-        """Copy a file."""
+        """Copy a file. Return False if an error occurred, True otherwise."""
+        if self.config.dry_run:
+            return True
+
         # Select the smallest buffer size of the two, to avoid congestion.
         buffer_size = min(self.source_transport.buffer_size,
                           self.destination_transport.buffer_size)
@@ -228,11 +266,14 @@ class OmniSync:
             logging.error("Could not open %s, skipping..." % source)
             return False
         # Remove the file before copying.
+        self.destination_transport.mkdir(destination[:destination.rfind("/")])
         self.destination_transport.remove(destination)
         try:
             self.destination_transport.open(destination, "wb")
         except IOError:
             logging.error("Could not open %s, skipping..." % destination)
+            self.destination_transport.close()
+            self.source_transport.close()
             return False
         data = self.source_transport.read(buffer_size)
         while data:

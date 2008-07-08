@@ -11,7 +11,7 @@ try:
 except NameError:
     OSERROR = OSError
 
-class File(TransportInterface):
+class FileTransport(TransportInterface):
     """Plain file access class."""
     # Transports should declare the protocols attribute to specify the protocol(s)
     # they can handle.
@@ -47,7 +47,7 @@ class File(TransportInterface):
         """This method does nothing, since we don't need to disconnect from the
            filesystem."""
 
-    def open(self, url, mode):
+    def open(self, url, mode="rb"):
         """Open a file in _mode_ to prepare for reading.
 
            Raises IOError if anything goes wrong.
@@ -68,29 +68,45 @@ class File(TransportInterface):
         """Remove the specified file/directory."""
         try:
             os.remove(self.__get_filename(url))
-        except OSERROR: 
+        except OSERROR:
             return False
         else:
             return True
 
     def close(self):
         """Close the open file."""
-        self.file_handle.close()
+        if self.file_handle:
+            self.file_handle.close()
+            self.file_handle = None
 
     def mkdir(self, url):
-        """Make a directory at the current URL."""
-        os.mkdir(self.__get_filename(url))
+        """Recursively make the given directories at the current URL."""
+        current_path = ""
+        for component in self.__get_filename(url).split("/"):
+            current_path += component + "/"
+            try:
+                os.mkdir(current_path)
+            except OSERROR:
+                exception = True
+            else:
+                exception = False
+
+        # If _exception_ is True here, it means the last creation statement produced one, so our
+        # directory  was not created.
+        return not exception
 
     def listdir(self, url):
         """Retrieve a directory listing of the given location.
 
-        Returns a list of (filename, attribute_dict) tuples if the
+        Returns a list of (url, attribute_dict) tuples if the
         given URL is a directory, False otherwise.
         attribute_dict is a dictionary of {key: value} pairs for any applicable
         attributes from ("size", "mtime", "atime", "ctime", "isdir").
         """
+        if not url.endswith("/"):
+            url = url + "/"
         try:
-            return [(x, {}) for x in os.listdir(self.__get_filename(url))]
+            return [(url + x, {}) for x in os.listdir(self.__get_filename(url))]
         except OSERROR:
             return False
 
