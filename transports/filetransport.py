@@ -5,6 +5,7 @@ from transports.transportmount import TransportInterface
 import os
 import urlparse
 import time
+import errno
 
 try:
     OSERROR = WindowsError
@@ -86,14 +87,11 @@ class FileTransport(TransportInterface):
             current_path += component + "/"
             try:
                 os.mkdir(current_path)
-            except OSERROR:
-                exception = True
-            else:
-                exception = False
+            except OSERROR, failure:
+                if failure.errno != errno.EEXIST:
+                    return False
 
-        # If _exception_ is True here, it means the last creation statement produced one, so our
-        # directory  was not created.
-        return not exception
+        return True
 
     def listdir(self, url):
         """Retrieve a directory listing of the given location.
@@ -135,5 +133,5 @@ class FileTransport(TransportInterface):
             os.utime(self.__get_filename(url), (time.time(), attributes["mtime"]))
 
     def exists(self, url):
-        """Return true if a given path exists."""
+        """Return True if a given path exists, False otherwise."""
         return os.path.exists(self.__get_filename(url))

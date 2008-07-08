@@ -29,8 +29,19 @@ class Tests(unittest.TestCase):
         for test, expected_output in tests:
             self.assertEqual(urlfunctions.prepend_slash(*test), expected_output)
 
-    def test_url_join(self):
-        """Test url_join."""
+    def test_url_split(self):
+        """Test url_split."""
+        tests = (
+            ("file://some/file", ("file://some/", "file")),
+            ("file://some/dir/", ("file://some/dir/", "")),
+            ("file://dir", ("file://dir/", "")),
+            ("file://dir/", ("file://dir/", "")),
+        )
+        for test, expected_output in tests:
+            self.assertEqual(urlfunctions.url_split(test), expected_output)
+
+    def test_url_splice(self):
+        """Test url_splice."""
         tests = (
             (("file://C:/test/file",
               "file://C:/test/file/some/other/dir",
@@ -62,9 +73,19 @@ class Tests(unittest.TestCase):
               "file://C:/test/"),
              "file://C:/test/some/other/dir",
              ),
+            (("ftp://C:/test/file",
+              "ftp://C:/test/file/some/other/dir",
+              "file://C:/test"),
+             "file://C:/test/some/other/dir",
+             ),
+            (("ftp://C:/test/",
+              "ftp://C:/test/file",
+              "file://C:/test"),
+             "file://C:/test/file",
+             ),
         )
         for test, expected_output in tests:
-            self.assertEqual(urlfunctions.url_join(*test), expected_output)
+            self.assertEqual(urlfunctions.url_splice(*test), expected_output)
 
     def test_urls(self):
         """Test URL normalisation."""
