@@ -146,7 +146,7 @@ class OmniSync:
 
         self.source_transport.disconnect()
         self.destination_transport.disconnect()
-        print "Finished in %.2f sec." % (time.time() - start_time)
+        logging.info("Finished in %.2f sec." % (time.time() - start_time))
 
     def set_destination_attributes(self, destination, attributes):
         """Set the destination's attributes. This is a wrapper for the transport's _setattr_."""
