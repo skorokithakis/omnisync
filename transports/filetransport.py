@@ -2,8 +2,8 @@
 
 from transports.transportmount import TransportInterface
 
+import urlfunctions
 import os
-import urlparse
 import time
 import errno
 
@@ -16,7 +16,7 @@ class FileTransport(TransportInterface):
     """Plain file access class."""
     # Transports should declare the protocols attribute to specify the protocol(s)
     # they can handle.
-    protocols = ("file", "ftp")
+    protocols = ("file", )
     # listdir_attributes is a tuple that contains the file attributes that listdir()
     # supports.
     listdir_attributes = set()
@@ -34,10 +34,10 @@ class FileTransport(TransportInterface):
     def __init__(self):
         self.file_handle = None
 
-    def __get_filename(self, url):
+    def _get_filename(self, url):
         """Retrieve the local filename from a given URL."""
-        split_url = urlparse.urlsplit(url)
-        return split_url[1] + split_url[2]
+        split_url = urlfunctions.url_split(url, split_hostname=False)
+        return split_url.path
 
     # Transports should also implement the following methods:
     def connect(self, url):
@@ -49,13 +49,13 @@ class FileTransport(TransportInterface):
            filesystem."""
 
     def open(self, url, mode="rb"):
-        """Open a file in _mode_ to prepare for reading.
+        """Open a file in _mode_ to prepare for I/O.
 
            Raises IOError if anything goes wrong.
         """
         if self.file_handle:
             raise IOError, "Another file is already open."
-        self.file_handle = open(self.__get_filename(url), mode)
+        self.file_handle = open(self._get_filename(url), mode)
 
     def read(self, size):
         """Read _size_ bytes from the open file."""
@@ -68,7 +68,7 @@ class FileTransport(TransportInterface):
     def remove(self, url):
         """Remove the specified file/directory."""
         try:
-            os.remove(self.__get_filename(url))
+            os.remove(self._get_filename(url))
         except OSERROR:
             return False
         else:
@@ -83,7 +83,7 @@ class FileTransport(TransportInterface):
     def mkdir(self, url):
         """Recursively make the given directories at the current URL."""
         current_path = ""
-        for component in self.__get_filename(url).split("/"):
+        for component in self._get_filename(url).split("/"):
             current_path += component + "/"
             try:
                 os.mkdir(current_path)
@@ -96,32 +96,32 @@ class FileTransport(TransportInterface):
     def listdir(self, url):
         """Retrieve a directory listing of the given location.
 
-        Returns a list of (url, attribute_dict) tuples if the
-        given URL is a directory, False otherwise.
+        Returns a list of (url, attribute_dict) tuples if the given URL is a directory,
+        False otherwise. URLs should be absolute, including protocol, etc.
         attribute_dict is a dictionary of {key: value} pairs for any applicable
         attributes from ("size", "mtime", "atime", "ctime", "isdir").
         """
         if not url.endswith("/"):
             url = url + "/"
         try:
-            return [(url + x, {}) for x in os.listdir(self.__get_filename(url))]
+            return [(url + x, {}) for x in os.listdir(self._get_filename(url))]
         except OSERROR:
             return False
 
     def isdir(self, url):
         """Return True if the given URL is a directory, False if it is a file or
            does not exist."""
-        return os.path.isdir(self.__get_filename(url))
+        return os.path.isdir(self._get_filename(url))
 
     def getattr(self, url, attributes):
         """Retrieve (at least) the requested file attributes.
 
-        Returns a dictionary whose keys are the items of attributes.
+        Returns a dictionary whose keys are the values of the attributes.
         """
         if set(attributes) - self.getattr_attributes:
             raise NotImplementedError, "Some requested attributes are not implemented."
         try:
-            statinfo = os.stat(self.__get_filename(url))
+            statinfo = os.stat(self._get_filename(url))
         except OSERROR:
             return {"size": None, "mtime": None}
         return {"size": statinfo.st_size, "mtime": statinfo.st_mtime}
@@ -130,8 +130,8 @@ class FileTransport(TransportInterface):
         """Set a file's attributes if possible."""
         # We can only set mtime here.
         if "mtime" in attributes:
-            os.utime(self.__get_filename(url), (time.time(), attributes["mtime"]))
+            os.utime(self._get_filename(url), (time.time(), attributes["mtime"]))
 
     def exists(self, url):
         """Return True if a given path exists, False otherwise."""
-        return os.path.exists(self.__get_filename(url))
+        return os.path.exists(self._get_filename(url))

@@ -5,11 +5,11 @@ import os
 import sys
 import logging
 import optparse
-import urlparse
-from urlfunctions import url_splice, url_split
+import time
 
 from version import VERSION
 from transports.transportmount import TransportInterface
+from urlfunctions import url_splice, url_split
 
 
 class Configuration:
@@ -49,7 +49,7 @@ class OmniSync:
         # Import the I/O module classes.
         module_path = "transports"
         for module in os.listdir(module_path):
-            if module.endswith(".py"):
+            if module.endswith("transport.py"):
                 module_name = module_path + "." + module[:-3]
                 logging.debug("Importing \"%s\"." % (module_name))
                 __import__(module_name)
@@ -65,19 +65,21 @@ class OmniSync:
 
     def check_locations(self):
         """Check that the two locations are suitable for synchronisation."""
-        if not self.source_transport.exists(self.source):
+        if url_split(self.source).get_dict().keys == ["scheme"]:
+            logging.error("You need to specify something more than that for the source.")
+            return False
+        elif url_split(self.source).get_dict().keys == ["scheme"]:
+            logging.error("You need to specify more information than that for the destination.")
+            return False
+        elif not self.source_transport.exists(self.source):
             logging.error("The source location \"%s\" does not exist, aborting." %
                           self.source)
             return False
 
         # Check if both locations are of the same type.
         source_isdir = self.source_transport.isdir(self.source)
-        destination_isdir = self.destination.endswith("/")
         leave = False
-        if source_isdir and not destination_isdir:
-            logging.error("Source is a directory but destination is a file, aborting.")
-            leave = True
-        elif self.source.startswith(self.destination) and source_isdir:
+        if self.source.startswith(self.destination) and source_isdir:
             logging.error("The destination directory is a parent of the source directory.")
             leave = True
         elif not hasattr(self.source_transport, "read"):
@@ -104,31 +106,25 @@ class OmniSync:
 
         if leave:
             return False
-
-        if not self.destination_transport.exists(self.destination):
-            if self.destination.endswith("/"):
-                logging.debug("The destination location \"%s\" does not exist, creating." %
-                              self.destination)
-                # If the destination should be a directory, create it.
-                self.destination_transport.mkdir(self.destination)
-
-        return True
+        else:
+            return True
 
     def sync(self, source, destination):
         """Synchronise two locations."""
+        start_time = time.time()
         self.source = normalise_url(source)
         self.destination = normalise_url(destination)
 
         # Instantiate the transports.
         try:
-            self.source_transport = self.transports[urlparse.urlsplit(self.source)[0]]()
+            self.source_transport = self.transports[url_split(self.source).scheme]()
         except KeyError:
-            logging.error("Protocol not supported: %s." % urlparse.urlsplit(self.source)[0])
+            logging.error("Protocol not supported: %s." % url_split(self.source).scheme)
             return
         try:
-            self.destination_transport = self.transports[urlparse.urlsplit(self.destination)[0]]()
+            self.destination_transport = self.transports[url_split(self.destination).scheme]()
         except KeyError:
-            logging.error("Protocol not supported: %s." % urlparse.urlsplit(self.destination)[0])
+            logging.error("Protocol not supported: %s." % url_split(self.destination).scheme)
             return
 
         # Give the transports a chance to connect to their servers.
@@ -150,6 +146,7 @@ class OmniSync:
 
         self.source_transport.disconnect()
         self.destination_transport.disconnect()
+        print "Finished in %.2f sec." % (time.time() - start_time)
 
     def set_destination_attributes(self, destination, attributes):
         """Set the destination's attributes. This is a wrapper for the transport's _setattr_."""
@@ -295,8 +292,8 @@ def normalise_url(url):
     url = url.replace("\\", "/")
 
     # Prepend file:// to the URL if it lacks a protocol.
-    split_url = urlparse.urlsplit(url)
-    if len(split_url[0]) <= 1:
+    split_url = url_split(url)
+    if split_url.scheme == "":
         url = "file://" + url
     return url
 
