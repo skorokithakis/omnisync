@@ -17,6 +17,10 @@ class FileTransport(TransportInterface):
     # Transports should declare the protocols attribute to specify the protocol(s)
     # they can handle.
     protocols = ("file", )
+    # Inform whether this transport's URLs use a hostname. The difference between http://something
+    # and file://something is that in the former "something" is a hostname, but in the latter it's
+    # a path.
+    uses_hostname = False
     # listdir_attributes is a tuple that contains the file attributes that listdir()
     # supports.
     listdir_attributes = set()
@@ -36,7 +40,7 @@ class FileTransport(TransportInterface):
 
     def _get_filename(self, url):
         """Retrieve the local filename from a given URL."""
-        split_url = urlfunctions.url_split(url, split_hostname=False)
+        split_url = urlfunctions.url_split(url, uses_hostname=self.uses_hostname)
         return split_url.path
 
     # Transports should also implement the following methods:

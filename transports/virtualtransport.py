@@ -10,6 +10,10 @@ class VirtualTransport(TransportInterface):
     # Transports should declare the protocols attribute to specify the protocol(s)
     # they can handle.
     protocols = ("virtual", )
+    # Inform whether this transport's URLs use a hostname. The difference between http://something
+    # and file://something is that in the former "something" is a hostname, but in the latter it's
+    # a path.
+    uses_hostname = True
     # listdir_attributes is a tuple that contains the file attributes that listdir()
     # supports.
     listdir_attributes = set()
@@ -144,4 +148,9 @@ class VirtualTransport(TransportInterface):
 
     def exists(self, url):
         """Return True if a given path exists, False otherwise."""
-        return self._get_filename(url) in self._filesystem
+        if self._get_filename(url) in self._filesystem:
+            return True
+        for key in self._filesystem:
+            if key.startswith(self._get_filename(url)):
+                return True
+        return False
