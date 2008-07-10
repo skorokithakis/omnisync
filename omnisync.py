@@ -9,7 +9,7 @@ import time
 
 from version import VERSION
 from transports.transportmount import TransportInterface
-from urlfunctions import url_splice, url_split
+from urlfunctions import url_splice, url_split, url_join, normalise_url
 
 
 class Configuration:
@@ -170,7 +170,11 @@ class OmniSync:
                 if not dest_isdir:
                     self.destination_transport.mkdir(self.destination)
                 # Splice the source filename onto the destination URL.
-                dest_url = url_splice(url_split(self.source)[0], self.source, self.destination)
+                dest_url = url_split(self.destination)
+                dest_url.file = url_split(self.source,
+                                          uses_hostname=self.source_transport.uses_hostname,
+                                          split_filename=True).file
+                dest_url = url_join(dest_url)
                 self.compare_and_copy(self.source, dest_url)
             else:
                 self.compare_and_copy(self.source, self.destination)
@@ -285,17 +289,6 @@ class OmniSync:
 
 
 omnisync = OmniSync()
-
-def normalise_url(url):
-    """Normalise a URL from its shortcut to its proper form."""
-    # Replace all backslashes with forward slashes.
-    url = url.replace("\\", "/")
-
-    # Prepend file:// to the URL if it lacks a protocol.
-    split_url = url_split(url)
-    if split_url.scheme == "":
-        url = "file://" + url
-    return url
 
 def parse_arguments():
     """Parse the command-line arguments."""

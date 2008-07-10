@@ -1,7 +1,6 @@
 """omnisync unit tests."""
 
 import unittest
-import omnisync
 import urlfunctions
 
 class Tests(unittest.TestCase):
@@ -28,6 +27,28 @@ class Tests(unittest.TestCase):
         )
         for test, expected_output in tests:
             self.assertEqual(urlfunctions.prepend_slash(*test), expected_output)
+
+    def test_url_join(self):
+        """Test url_join."""
+        tests = (
+            ("http://user:pass@myhost:80/some/path/file;things?myhost=hi#lala", True, True),
+            ("http://user:pass@myhost:80/some/path/;things?myhost=hi#lala", True, True),
+            ("http://user@myhost/file;things?myhost=hi#lala", True, True),
+            ("http://myhost/;things?myhost=hi#lala", True, True),
+            ("http://user:pass@myhost:80/?myhost=hi#lala", True, True),
+            ("myhost/", True, True),
+            ("user:pass@myhost:80/", True, True),
+            ("user:pass@myhost/some#lala", True, True),
+            ("http://myhost:80/;things?myhost=hi#lala", True, True),
+            ("http://myhost/#lala", True, True),
+            ("file://path", False, True),
+            ("file://path/file", False, True),
+            ("file:///path", False, True),
+            ("file:///path/file", False, True),
+            ("file:///path/file?something=else", False, True),
+        )
+        for test in tests:
+            self.assertEqual(urlfunctions.url_join(urlfunctions.url_split(*test)), test[0])
 
     def test_url_split(self):
         """Test url_split."""
@@ -82,11 +103,6 @@ class Tests(unittest.TestCase):
               "anchor": ""}),
             (("file://some/directory", False, False),
              {"scheme": "file",
-              "netloc": "some",
-              "username": "",
-              "password": "",
-              "hostname": "",
-              "port": 0,
               "path": "some/directory",
               "file": "",
               "params": "",
@@ -101,6 +117,18 @@ class Tests(unittest.TestCase):
               "port": 0,
               "path": "/",
               "file": "directory",
+              "params": "",
+              "query": "",
+              "anchor": ""}),
+            (("host", True, True),
+             {"scheme": "",
+              "netloc": "host",
+              "username": "",
+              "password": "",
+              "hostname": "host",
+              "port": 0,
+              "path": "",
+              "file": "",
               "params": "",
               "query": "",
               "anchor": ""}),
@@ -142,12 +170,14 @@ class Tests(unittest.TestCase):
               "anchor": "lala"}),
             (("file://I:/some/path/file", False, True),
              {"scheme": "file",
-              "netloc": "I:",
-              "username": "",
-              "password": "",
-              "hostname": "",
-              "port": 0,
               "path": "I:/some/path/",
+              "file": "file",
+              "params": "",
+              "query": "",
+              "anchor": ""}),
+            (("file://file", False, True),
+             {"scheme": "file",
+              "path": "",
               "file": "file",
               "params": "",
               "query": "",
@@ -196,10 +226,15 @@ class Tests(unittest.TestCase):
               "file://C:/test"),
              "file://C:/test/some/other/dir",
              ),
-            (("ftp://C:/test/",
-              "ftp://C:/test/file",
-              "file://C:/test"),
-             "file://C:/test/file",
+            (("ftp://myhost:21/test/",
+              "ftp://myhost:21/test/file",
+              "file://otherhost:21/test;someparams"),
+             "file://otherhost:21/test/file;someparams",
+             ),
+            (("ftp://user:pass@myhost:21/test/",
+              "ftp://user:pass@myhost:21/test/file",
+              "file://otherhost:21/test;someparams"),
+             "file://otherhost:21/test/file;someparams",
              ),
         )
         for test, expected_output in tests:
@@ -215,7 +250,7 @@ class Tests(unittest.TestCase):
             ("/root/dir/", "file:///root/dir/"),
         )
         for test, expected_output in urls:
-            self.assertEqual(omnisync.normalise_url(test), expected_output)
+            self.assertEqual(urlfunctions.normalise_url(test), expected_output)
 
 if __name__ == '__main__':
     unittest.main()
