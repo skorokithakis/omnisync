@@ -96,13 +96,24 @@ class VirtualTransport(TransportInterface):
         else:
             return True
 
+    def rmdir(self, url):
+        """Remove the specified directory non-recursively."""
+        url = urlfunctions.append_slash(url)
+        filename = self._get_filename(url, False)
+        if self.listdir(url):
+            return False
+        else:
+            del self._filesystem[filename]
+            return True
+
     def close(self):
         """Close the open file."""
         self._file_handle = None
 
     def mkdir(self, url):
-        """Do nothing, we don't need to make directories."""
-        pass
+        """Create a directory."""
+        # TODO: Implement real directories.
+        self._filesystem[self._get_filename(url)] = None
 
     def listdir(self, url):
         """Retrieve a directory listing of the given location.

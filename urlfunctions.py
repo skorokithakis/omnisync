@@ -46,10 +46,13 @@ class URLSplitResult(object):
 
 
 def url_split(url, uses_hostname=True, split_filename=False):
-    """Split the URL into its components. urlparse.urlparse() is a bit deficient for our needs.
+    """Split the URL into its components.
+
        uses_hostname defines whether the protocol uses a hostname or just a path (for
        "file://relative/directory"-style URLs) or not. split_filename defines whether the
-       filename will be split off in an attribute or whether it will be part of the path"""
+       filename will be split off in an attribute or whether it will be part of the path
+    """
+    # urlparse.urlparse() is a bit deficient for our needs.
     try:
         if uses_hostname:
             match = URL_RE_HOSTNAME.match(url).groupdict()

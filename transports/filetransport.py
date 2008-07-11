@@ -71,9 +71,18 @@ class FileTransport(TransportInterface):
         self.file_handle.write(data)
 
     def remove(self, url):
-        """Remove the specified file/directory."""
+        """Remove the specified file."""
         try:
             os.remove(self._get_filename(url))
+        except OSERROR:
+            return False
+        else:
+            return True
+
+    def rmdir(self, url):
+        """Remove the specified directory non-recursively."""
+        try:
+            os.rmdir(self._get_filename(url))
         except OSERROR:
             return False
         else:

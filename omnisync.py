@@ -6,11 +6,12 @@ import sys
 import logging
 import optparse
 import time
+import re
 
 from version import VERSION
 from transports.transportmount import TransportInterface
 from fileobject import FileObject
-from urlfunctions import url_splice, url_split, url_join, normalise_url
+from urlfunctions import url_splice, url_split, url_join, normalise_url, append_slash
 
 
 class Configuration:
@@ -31,8 +32,14 @@ class Configuration:
             self.requested_attributes = set()
         self.dry_run = options.dry_run
         self.recursive = options.recursive
-        self.exclude = options.exclude
-        self.include = options.include
+        if options.exclude:
+            self.exclude = re.compile(options.exclude)
+        else:
+            self.exclude = None
+        if options.include:
+            self.include = re.compile(options.include)
+        else:
+            self.include = None
 
 class OmniSync:
     """The main program class."""
@@ -158,7 +165,50 @@ class OmniSync:
         # the case.
         if not self.config.dry_run and \
            set(attributes) & set(self.destination_transport.setattr_attributes):
-            self.destination_transport.setattr(destination, attributes)
+            self.destination_transport.setattr(destination.url, attributes)
+
+    def compare_directories(self, source_dir_list, dest_dir_url):
+        """Compare the source's directory list with the destination's and perform any actions
+           necessary, such as deleting files or creating directories."""
+        dest_dir_list = self.destination_transport.listdir(dest_dir_url)
+        if not dest_dir_list:
+            self.destination_transport.mkdir(dest_dir_url)
+            dest_dir_list = []
+        # Construct a dictionary of {filename: FileObject} items.
+        dest_paths = dict([(url_split(append_slash(x.url, False),
+                                      self.destination_transport.uses_hostname,
+                                      True).file, x) for x in dest_dir_list])
+        create_dirs = []
+        for item in source_dir_list:
+            # Remove slashes so the splitter can get the filename.
+            url = url_split(append_slash(item.url, False),
+                            self.source_transport.uses_hostname,
+                            True).file
+            if url in dest_paths and dest_paths[url].isdir == item.isdir:
+                # Remove it from the list.
+                del dest_paths[url]
+            else:
+                # If an item is in the source but not the destination tree...
+                if item.isdir and self.config.recursive:
+                    # ...create it if it's a directory.
+                    create_dirs.append(item)
+
+        if self.config.delete:
+            for key, item in dest_paths.items():
+                if item.isdir:
+                    if self.config.recursive:
+                        logging.info("Deleting destination directory %s..." % item)
+                        self.recursively_delete(item)
+                else:
+                    logging.info("Deleting destination file %s..." % item)
+                    self.destination_transport.remove(item.url)
+
+        # Create directories after we've deleted everything else because sometimes a directory in
+        # the source might have the same name as a file, so we need to delete files first.
+        for item in create_dirs:
+            dest_url = url_splice(self.source, item.url, self.destination)
+            self.destination_transport.mkdir(dest_url)
+
 
     def recurse(self):
         """Recursively synchronise everything."""
@@ -183,18 +233,33 @@ class OmniSync:
             else:
                 self.compare_and_copy(self.source, self.destination)
         else:
-            directory_queue = source_dir_list
+            directory_stack = [FileObject(self.source_transport, self.source, {"isdir": True})]
 
             # Depth-first tree traversal.
-            while directory_queue:
-                item = directory_queue.pop()
+            while directory_stack:
+                item = directory_stack.pop()
                 logging.debug("URL %s is %sa directory." % \
                               (item.url, not item.isdir and "not " or ""))
                 if item.isdir:
-                    new_dir_list = self.source_transport.listdir(item.url)
-                    dest_url = url_splice(self.source, item.url, self.destination)
-                    dest = FileObject(self.destination_transport, dest_url)
-                    directory_queue.extend(new_dir_list)
+                    # Don't skip the first directory.
+                    if not self.config.recursive and directory_stack:
+                        logging.info("Skipping directory %s..." % item)
+                        continue
+                    new_dir_list = []
+                    for new_file in reversed(self.source_transport.listdir(item.url)):
+                        if (self.config.exclude and self.config.exclude.search(new_file.url)) and \
+                            not (self.config.include and self.config.include.search(new_file.url)):
+                            # If we are told to exclude the file and not told to include it, then
+                            # act as if it doesn't exist.
+                            logging.debug("Skipping %s..." % (new_file))
+                        else:
+                            # Otherwise, append the file to the directory list.
+                            new_dir_list.append(new_file)
+                    dest = url_splice(self.source, item.url, self.destination)
+                    dest = FileObject(self.destination_transport, dest)
+                    logging.debug("Comparing directories %s and %s..." % (item.url, dest.url))
+                    self.compare_directories(new_dir_list, dest.url)
+                    directory_stack.extend(new_dir_list)
                 else:
                     dest_url = url_splice(self.source, item.url, self.destination)
                     logging.debug("Destination URL is %s." % dest_url)
@@ -259,6 +324,30 @@ class OmniSync:
             self.set_destination_attributes(destination, source.attributes)
             self.file_counter += 1
 
+    def recursively_delete(self, directory):
+        """Recursively delete a directory from the destination transport.
+
+           directory - A FileObject instance of the directory to delete.
+        """
+        directory_stack = [directory]
+        directory_names = []
+
+        # Delete all files in the given directories and gather their names in a stack.
+        while directory_stack:
+            item = directory_stack.pop()
+            if item.isdir:
+                # If the item is a directory, append its contents to the stack (reversing them for
+                # proper ordering)...
+                directory_stack.extend(reversed(self.destination_transport.listdir(item.url)))
+                directory_names.append(item)
+            else:
+                # ...otherwise, remove it.
+                self.destination_transport.remove(item.url)
+
+        while directory_names:
+            item = directory_names.pop()
+            self.destination_transport.rmdir(item.url)
+
     def copy_file(self, source, destination):
         """Copy a file.
 
@@ -276,8 +365,6 @@ class OmniSync:
         except IOError:
             logging.error("Could not open %s, skipping..." % source)
             raise
-        # TODO: This is an ugly, ugly hack, remove when we improve it.
-        self.destination_transport.mkdir(destination.url[:destination.url.rfind("/")])
         # Remove the file before copying.
         self.destination_transport.remove(destination.url)
         try:
@@ -319,7 +406,7 @@ def parse_arguments():
     parser.add_option("-r", "--recursive",
                       action="store_true",
                       dest="recursive",
-                      help="recurse into directories"
+                      help="recurse into directories",
                       )
     parser.add_option("--delete",
                       action="store_true",
@@ -331,7 +418,6 @@ def parse_arguments():
                       dest="dry_run",
                       help="show what would have been transferred"
                       )
-    # TODO: Write support for these.
     parser.add_option("-p", "--perms",
                       action="append_const",
                       const="perms",
@@ -352,12 +438,12 @@ def parse_arguments():
                       )
     parser.add_option("--exclude",
                       dest="exclude",
-                      help="exclude files matching PATTERN",
+                      help="exclude objects matching the PATTERN regex",
                       metavar="PATTERN"
                       )
     parser.add_option("--include",
                       dest="include",
-                      help="don't exclude files matching PATTERN",
+                      help="don't exclude objects matching the PATTERN regex",
                       metavar="PATTERN"
                       )
     (options, args) = parser.parse_args()

@@ -11,7 +11,6 @@ class FileObject(object):
 
     def __getattr__(self, name):
         """Get the requested attribute from the cache, or fetch it if it doesn't exist.."""
-        # TODO: Convert these to read-only properties.
         try:
             return self._attr_dict[name]
         except KeyError:
@@ -47,7 +46,7 @@ class FileObject(object):
 
     def __repr__(self):
         """Return a human-readable description of the object."""
-        return "<FileObject: %s>" % self.url
+        return self.url
 
     def __contains__(self, name):
         """Returns True if we have cached the attribute, False otherwise."""
