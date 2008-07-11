@@ -194,7 +194,7 @@ class OmniSync:
                     create_dirs.append(item)
 
         if self.config.delete:
-            for key, item in dest_paths.items():
+            for item in dest_paths.values():
                 if item.isdir:
                     if self.config.recursive:
                         logging.info("Deleting destination directory %s..." % item)
