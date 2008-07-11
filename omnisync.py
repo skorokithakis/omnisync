@@ -9,6 +9,7 @@ import time
 
 from version import VERSION
 from transports.transportmount import TransportInterface
+from fileobject import FileObject
 from urlfunctions import url_splice, url_split, url_join, normalise_url
 
 
@@ -30,6 +31,8 @@ class Configuration:
             self.requested_attributes = set()
         self.dry_run = options.dry_run
         self.recursive = options.recursive
+        self.exclude = options.exclude
+        self.include = options.include
 
 class OmniSync:
     """The main program class."""
@@ -42,6 +45,7 @@ class OmniSync:
         self.config = None
         self.max_attributes = None
         self.max_evaluation_attributes = None
+        self.file_counter = 0
 
         # Initialise the logger.
         logging.basicConfig(level=logging.INFO, format='%(message)s')
@@ -146,7 +150,7 @@ class OmniSync:
 
         self.source_transport.disconnect()
         self.destination_transport.disconnect()
-        logging.info("Finished in %.2f sec." % (time.time() - start_time))
+        logging.info("Copied %s files in %.2f sec." % (self.file_counter, time.time() - start_time))
 
     def set_destination_attributes(self, destination, attributes):
         """Set the destination's attributes. This is a wrapper for the transport's _setattr_."""
@@ -183,34 +187,30 @@ class OmniSync:
 
             # Depth-first tree traversal.
             while directory_queue:
-                url, attrs = directory_queue.pop()
-                if "isdir" not in attrs:
-                    attrs["isdir"] = self.source_transport.isdir(url)
+                item = directory_queue.pop()
                 logging.debug("URL %s is %sa directory." % \
-                              (url, not attrs["isdir"] and "not " or ""))
-                if attrs["isdir"]:
-                    directory_queue.extend(self.source_transport.listdir(url))
+                              (item.url, not item.isdir and "not " or ""))
+                if item.isdir:
+                    new_dir_list = self.source_transport.listdir(item.url)
+                    dest_url = url_splice(self.source, item.url, self.destination)
+                    dest = FileObject(self.destination_transport, dest_url)
+                    directory_queue.extend(new_dir_list)
                 else:
-                    dest_url = url_splice(self.source, url, self.destination)
+                    dest_url = url_splice(self.source, item.url, self.destination)
                     logging.debug("Destination URL is %s." % dest_url)
-                    self.compare_and_copy(url, dest_url, attrs, {})
+                    dest = FileObject(self.destination_transport, dest_url)
+                    self.compare_and_copy(item, dest)
 
-    def compare_and_copy(self, source, destination, src_attrs=None, dest_attrs=None):
+    def compare_and_copy(self, source, destination):
         """Compare the attributes of two files and copy if changed.
 
-           source            - A source URL of a file.
-           destination       - A destination URL of a file.
-           src_attrs - A dictionary containing some source attributes.
+           source      - A FileObject instance pointing to the source file.
+           destination - A FileObject instance pointing to the source file.
 
            Returns True if the file was copied, False otherwise.
         """
-        if src_attrs is None:
-            src_attrs = {}
-        if dest_attrs is None:
-            dest_attrs = {}
-
         # Try to gather as many attributes of both files as possible.
-        our_src_attributes = (set(src_attrs) & self.max_evaluation_attributes)
+        our_src_attributes = (source.attribute_set & self.max_evaluation_attributes)
         max_src_attributes = (self.source_transport.getattr_attributes &
                               self.max_evaluation_attributes) | \
                               self.config.requested_attributes
@@ -220,26 +220,27 @@ class OmniSync:
             # user requested and the ones we can gather through getattr(), get the rest.
             logging.debug("Source getattr for file %s and arguments %s deemed necessary." % \
                           (source, src_difference))
-            src_attrs.update(self.source_transport.getattr(source, src_difference))
+            source.populate_attributes(src_difference)
             # We should now have all the attributes we're interested in, both for evaluating if
             # the files are different and setting.
 
         # We aren't interested in the user's requested arguments for the destination.
-        dest_difference = (self.destination_transport.getattr_attributes - set(dest_attrs)) & \
-                           self.max_evaluation_attributes
+        dest_difference = (self.destination_transport.getattr_attributes -
+                           destination.attribute_set) & self.max_evaluation_attributes
         if dest_difference:
             # Same for the destination.
             logging.debug("Destination getattr for %s deemed necessary." % destination)
-            dest_attrs.update(self.destination_transport.getattr(destination, dest_difference))
+            destination.populate_attributes(dest_difference)
 
         # Compare the evaluation keys that are common in both dictionaries. If one is different,
         # copy the file.
-        evaluation_attributes = set(src_attrs) & set(dest_attrs) & self.max_evaluation_attributes
+        evaluation_attributes = source.attribute_set & destination.attribute_set & \
+                                self.max_evaluation_attributes
         logging.debug("Checking evaluation attributes %s..." % evaluation_attributes)
         for key in evaluation_attributes:
-            if src_attrs[key] != dest_attrs[key]:
+            if getattr(source, key) != getattr(destination, key):
                 logging.debug("Source and destination %s was different (%s vs %s)." %\
-                              (key, src_attrs[key], dest_attrs[key]))
+                              (key, getattr(source, key), getattr(destination, key)))
                 logging.info("Copying \"%s\" to \"%s\"..." % (source, destination))
                 try:
                     self.copy_file(source, destination)
@@ -247,17 +248,23 @@ class OmniSync:
                     return
                 else:
                     # If the file was successfully copied, set its attributes.
-                    self.set_destination_attributes(destination, src_attrs)
+                    self.set_destination_attributes(destination, source.attributes)
+                    self.file_counter += 1
                     return
         else:
             # The two files are identical, skip them...
             logging.info("Files \"%s\" and \"%s\" are identical, skipping..." %
                          (source, destination))
             # ...but set the attributes anyway.
-            self.set_destination_attributes(destination, src_attrs)
+            self.set_destination_attributes(destination, source.attributes)
+            self.file_counter += 1
 
     def copy_file(self, source, destination):
-        """Copy a file."""
+        """Copy a file.
+
+           source      - A FileObject instance pointing to the source file.
+           destination - A FileObject instance pointing to the source file.
+        """
         if self.config.dry_run:
             return
 
@@ -265,16 +272,16 @@ class OmniSync:
         buffer_size = min(self.source_transport.buffer_size,
                           self.destination_transport.buffer_size)
         try:
-            self.source_transport.open(source, "rb")
+            self.source_transport.open(source.url, "rb")
         except IOError:
             logging.error("Could not open %s, skipping..." % source)
             raise
         # TODO: This is an ugly, ugly hack, remove when we improve it.
-        self.destination_transport.mkdir(destination[:destination.rfind("/")])
+        self.destination_transport.mkdir(destination.url[:destination.url.rfind("/")])
         # Remove the file before copying.
-        self.destination_transport.remove(destination)
+        self.destination_transport.remove(destination.url)
         try:
-            self.destination_transport.open(destination, "wb")
+            self.destination_transport.open(destination.url, "wb")
         except IOError:
             logging.error("Could not open %s, skipping..." % destination)
             self.destination_transport.close()
@@ -324,6 +331,7 @@ def parse_arguments():
                       dest="dry_run",
                       help="show what would have been transferred"
                       )
+    # TODO: Write support for these.
     parser.add_option("-p", "--perms",
                       action="append_const",
                       const="perms",
@@ -341,6 +349,16 @@ def parse_arguments():
                       const="group",
                       dest="attributes",
                       help="preserve group"
+                      )
+    parser.add_option("--exclude",
+                      dest="exclude",
+                      help="exclude files matching PATTERN",
+                      metavar="PATTERN"
+                      )
+    parser.add_option("--include",
+                      dest="include",
+                      help="don't exclude files matching PATTERN",
+                      metavar="PATTERN"
                       )
     (options, args) = parser.parse_args()
     if len(args) != 2:

@@ -5,6 +5,8 @@ from transports.transportmount import TransportInterface
 import pickle
 import urlfunctions
 
+from fileobject import FileObject
+
 class VirtualTransport(TransportInterface):
     """Virtual filesystem access class."""
     # Transports should declare the protocols attribute to specify the protocol(s)
@@ -121,7 +123,7 @@ class VirtualTransport(TransportInterface):
                     files.add(subpath)
                 else:
                     files.add(subpath[:subpath.find("/")])
-        return [(url + x, {}) for x in files]
+        return [FileObject(self, url + x,) for x in files]
 
     def isdir(self, url):
         """Return True if the given URL is a directory, False if it is a file or
@@ -134,7 +136,7 @@ class VirtualTransport(TransportInterface):
                 return True
 
     def getattr(self, url, attributes):
-        """Retrieve (at least) the requested file attributes.
+        """Retrieve as many file attributes as we can, at the very *least* the requested ones.
 
         Returns a dictionary whose keys are the values of the attributes.
         """

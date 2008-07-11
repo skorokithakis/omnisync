@@ -1,6 +1,7 @@
 """Plain file access module."""
 
 from transports.transportmount import TransportInterface
+from fileobject import FileObject
 
 import urlfunctions
 import os
@@ -86,6 +87,8 @@ class FileTransport(TransportInterface):
 
     def mkdir(self, url):
         """Recursively make the given directories at the current URL."""
+        # Recursion is not needed for anything but the first directory, so we need to be able to
+        # do it.
         current_path = ""
         for component in self._get_filename(url).split("/"):
             current_path += component + "/"
@@ -108,7 +111,7 @@ class FileTransport(TransportInterface):
         if not url.endswith("/"):
             url = url + "/"
         try:
-            return [(url + x, {}) for x in os.listdir(self._get_filename(url))]
+            return [FileObject(self, url + x) for x in os.listdir(self._get_filename(url))]
         except OSERROR:
             return False
 
@@ -118,7 +121,7 @@ class FileTransport(TransportInterface):
         return os.path.isdir(self._get_filename(url))
 
     def getattr(self, url, attributes):
-        """Retrieve (at least) the requested file attributes.
+        """Retrieve as many file attributes as we can, at the very *least* the requested ones.
 
         Returns a dictionary whose keys are the values of the attributes.
         """
