@@ -67,14 +67,21 @@ class VirtualTransport(TransportInterface):
 
            Raises IOError if anything goes wrong.
         """
-        self._file_handle = self._get_filename(url)
+        filename = self._get_filename(url)
+        if self._filesystem.get(filename, False) is None:
+            raise IOError, "File is a directory."
+        self._file_handle = filename
         if mode.startswith("r"):
+            if filename not in self._filesystem:
+                raise IOError, "File does not exist."
             self._bytes_read = 0
         else:
             self._filesystem[self._file_handle] = {"size": 0}
 
     def read(self, size):
         """Read _size_ bytes from the open file."""
+        if self._file_handle is None:
+            return IOError, "No file is open."
         if self._bytes_read + size < self._filesystem[self._file_handle]["size"]:
             self._bytes_read += size
             return " " * size
@@ -85,35 +92,39 @@ class VirtualTransport(TransportInterface):
 
     def write(self, data):
         """Write _data_ to the open file."""
+        if self._file_handle is None:
+            return IOError, "No file is open."
         self._filesystem[self._file_handle]["size"] += len(data)
 
+    def close(self):
+        """Close the open file."""
+        self._file_handle = None
+
     def remove(self, url):
-        """Remove the specified file/directory."""
-        try:
-            del self._filesystem[self._get_filename(url)]
-        except KeyError:
+        """Remove the specified file."""
+        filename = self._get_filename(url)
+        if filename not in self._filesystem or self._filesystem[filename] is None:
             return False
-        else:
-            return True
+        del self._filesystem[filename]
+        return True
 
     def rmdir(self, url):
         """Remove the specified directory non-recursively."""
-        url = urlfunctions.append_slash(url)
-        filename = self._get_filename(url, False)
+        filename = self._get_filename(url)
+        if self._filesystem[filename] is not None:
+            return False
         if self.listdir(url):
             return False
         else:
             del self._filesystem[filename]
             return True
 
-    def close(self):
-        """Close the open file."""
-        self._file_handle = None
-
     def mkdir(self, url):
         """Create a directory."""
-        # TODO: Implement real directories.
-        self._filesystem[self._get_filename(url)] = None
+        filename = self._get_filename(url)
+        if filename not in self._filesystem:
+            return IOError, "A directory with the specified name already exists."
+        self._filesystem[filename] = None
 
     def listdir(self, url):
         """Retrieve a directory listing of the given location.
@@ -141,29 +152,26 @@ class VirtualTransport(TransportInterface):
            does not exist."""
         # If a file path starts with the directory we're looking for, there's obviously a directory
         # with that name.
-        url = urlfunctions.append_slash(self._get_filename(url))
-        for key in self._filesystem:
-            if key.startswith(url):
-                return True
+        return self._filesystem[self._get_filename(url)] is None
 
     def getattr(self, url, attributes):
         """Retrieve as many file attributes as we can, at the very *least* the requested ones.
 
-        Returns a dictionary whose keys are the values of the attributes.
+        Returns a dictionary of {"attribute": "value"}, or {"attribute": None} if the file does
+        not exist.
         """
         try:
-            return self._filesystem[self._get_filename(url)]
+            attrs = self._filesystem[self._get_filename(url)]
         except KeyError:
             return {"size": None}
+        if attrs is None:
+            raise IOError, "Requested file is a directory."
+        else:
+            return attrs
 
     def setattr(self, url, attributes):
         """Do nothing."""
 
     def exists(self, url):
         """Return True if a given path exists, False otherwise."""
-        if self._get_filename(url) in self._filesystem:
-            return True
-        for key in self._filesystem:
-            if key.startswith(self._get_filename(url)):
-                return True
-        return False
+        return self._get_filename(url) in self._filesystem

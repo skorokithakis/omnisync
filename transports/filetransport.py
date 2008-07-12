@@ -99,15 +99,18 @@ class FileTransport(TransportInterface):
         # Recursion is not needed for anything but the first directory, so we need to be able to
         # do it.
         current_path = ""
+        error = False
         for component in self._get_filename(url).split("/"):
             current_path += component + "/"
             try:
                 os.mkdir(current_path)
             except OSERROR, failure:
                 if failure.errno != errno.EEXIST:
-                    return False
+                    error = True
+            else:
+                error = False
 
-        return True
+        return error
 
     def listdir(self, url):
         """Retrieve a directory listing of the given location.
@@ -132,7 +135,8 @@ class FileTransport(TransportInterface):
     def getattr(self, url, attributes):
         """Retrieve as many file attributes as we can, at the very *least* the requested ones.
 
-        Returns a dictionary whose keys are the values of the attributes.
+        Returns a dictionary of {"attribute": "value"}, or {"attribute": None} if the file does
+        not exist.
         """
         if set(attributes) - self.getattr_attributes:
             raise NotImplementedError, "Some requested attributes are not implemented."

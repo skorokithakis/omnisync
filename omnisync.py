@@ -209,7 +209,6 @@ class OmniSync:
             dest_url = url_splice(self.source, item.url, self.destination)
             self.destination_transport.mkdir(dest_url)
 
-
     def recurse(self):
         """Recursively synchronise everything."""
         source_dir_list = self.source_transport.listdir(self.source)
@@ -242,9 +241,10 @@ class OmniSync:
                               (item.url, not item.isdir and "not " or ""))
                 if item.isdir:
                     # Don't skip the first directory.
-                    if not self.config.recursive and directory_stack:
+                    if not self.config.recursive and item.url == self.source:
                         logging.info("Skipping directory %s..." % item)
                         continue
+                    # Obtain a directory list.
                     new_dir_list = []
                     for new_file in reversed(self.source_transport.listdir(item.url)):
                         if (self.config.exclude and self.config.exclude.search(new_file.url)) and \
@@ -376,6 +376,7 @@ class OmniSync:
             raise
         data = self.source_transport.read(buffer_size)
         while data:
+            # TODO: Implement a progress bar.
             self.destination_transport.write(data)
             data = self.source_transport.read(buffer_size)
         self.destination_transport.close()
