@@ -232,8 +232,8 @@ class OmniSync:
                 # Otherwise, append the file to the directory list.
                 return True
         else:
-            if self.config.exclude_files.search(new_file.url) and \
-                not self.config.include_files.search(new_file.url):
+            if self.config.exclude_files.search(item.url) and \
+                not self.config.include_files.search(item.url):
                 # If we are told to exclude the file and not told to include it,
                 # act as if it doesn't exist.
                 return False
