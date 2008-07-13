@@ -13,7 +13,6 @@ from transports.transportmount import TransportInterface
 from fileobject import FileObject
 from urlfunctions import url_splice, url_split, url_join, normalise_url, append_slash
 
-
 class Configuration:
     """Hold various configuration options."""
 
@@ -30,6 +29,7 @@ class Configuration:
             self.requested_attributes = set(options.attributes)
         else:
             self.requested_attributes = set()
+        # TODO: Improve support for this.
         self.dry_run = options.dry_run
         self.recursive = options.recursive
         if options.exclude:
@@ -141,8 +141,16 @@ class OmniSync:
             return
 
         # Give the transports a chance to connect to their servers.
-        self.source_transport.connect(self.source)
-        self.destination_transport.connect(self.destination)
+        try:
+            self.source_transport.connect(self.source)
+        except:
+            print "Connection to source failed, exiting..."
+            sys.exit(1)
+        try:
+            self.destination_transport.connect(self.destination)
+        except:
+            print "Connection to destination failed, exiting..."
+            sys.exit(1)
 
         # These are the most attributes we can expect from getattr calls in these two protocols.
         self.max_attributes = (self.source_transport.getattr_attributes &
@@ -152,7 +160,7 @@ class OmniSync:
                                           self.destination_transport.evaluation_attributes)
 
         if not self.check_locations():
-            return
+            sys.exit(1)
 
         # Begin the actual synchronisation.
         self.recurse()
@@ -174,7 +182,8 @@ class OmniSync:
            necessary, such as deleting files or creating directories."""
         dest_dir_list = self.destination_transport.listdir(dest_dir_url)
         if not dest_dir_list:
-            self.destination_transport.mkdir(dest_dir_url)
+            if not self.config.dry_run:
+                self.destination_transport.mkdir(dest_dir_url)
             dest_dir_list = []
         # Construct a dictionary of {filename: FileObject} items.
         dest_paths = dict([(url_split(append_slash(x.url, False),
@@ -204,6 +213,9 @@ class OmniSync:
                 else:
                     logging.info("Deleting destination file %s..." % item)
                     self.destination_transport.remove(item.url)
+
+        if self.config.dry_run:
+            return
 
         # Create directories after we've deleted everything else because sometimes a directory in
         # the source might have the same name as a file, so we need to delete files first.
@@ -309,7 +321,7 @@ class OmniSync:
             if getattr(source, key) != getattr(destination, key):
                 logging.debug("Source and destination %s was different (%s vs %s)." %\
                               (key, getattr(source, key), getattr(destination, key)))
-                logging.info("Copying \"%s\" to \"%s\"..." % (source, destination))
+                logging.info("Copying \"%s\"\n        to \"%s\"..." % (source, destination))
                 try:
                     self.copy_file(source, destination)
                 except IOError:
@@ -321,7 +333,7 @@ class OmniSync:
                     return
         else:
             # The two files are identical, skip them...
-            logging.info("Files \"%s\" and \"%s\" are identical, skipping..." %
+            logging.info("Files \"%s\"\n      and \"%s\" are identical, skipping..." %
                          (source, destination))
             # ...but set the attributes anyway.
             self.set_destination_attributes(destination, source.attributes)
