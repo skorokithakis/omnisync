@@ -241,7 +241,7 @@ class OmniSync:
                               (item.url, not item.isdir and "not " or ""))
                 if item.isdir:
                     # Don't skip the first directory.
-                    if not self.config.recursive and item.url == self.source:
+                    if not self.config.recursive and item.url != self.source:
                         logging.info("Skipping directory %s..." % item)
                         continue
                     # Obtain a directory list.
