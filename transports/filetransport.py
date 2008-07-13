@@ -28,7 +28,7 @@ class FileTransport(TransportInterface):
     # Conversely, for getattr().
     getattr_attributes = set(("size", "mtime", "atime", "perms", "owner", "group"))
     # List the attributes setattr() can set.
-    setattr_attributes = set(("mtime", "perms", "owner", "group"))
+    setattr_attributes = set(("mtime", "atime", "perms", "owner", "group"))
     # Define attributes that can be used to decide whether a file has been changed
     # or not.
     evaluation_attributes = set(("size", "mtime"))
@@ -154,12 +154,23 @@ class FileTransport(TransportInterface):
     def setattr(self, url, attributes):
         """Set a file's attributes if possible."""
         filename = self._get_filename(url)
-        if "mtime" in attributes:
-            os.utime(filename, (time.time(), attributes["mtime"]))
+        if "atime" in attributes or "mtime" in attributes:
+            atime = attributes.get("atime", time.time())
+            mtime = attributes.get("mtime", time.time())
+            try:
+                os.utime(filename, (atime, mtime))
+            except OSERROR:
+                print "Permission denied, could not set atime/mtime."
         if "perms" in attributes:
-            os.chmod(filename, attributes["perms"])
+            try:
+                os.chmod(filename, attributes["perms"])
+            except OSERROR:
+                print "Permission denied, could not set perms."
         if "owner" in attributes or "group" in attributes:
-            os.chown(filename, attributes.get("owner", -1), attributes.get("group", -1))
+            try:
+                os.chown(filename, attributes.get("owner", -1), attributes.get("group", -1))
+            except OSERROR:
+                print "Permission denied, could not set uid/gid."
 
     def exists(self, url):
         """Return True if a given path exists, False otherwise."""
