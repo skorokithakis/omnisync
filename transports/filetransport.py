@@ -3,14 +3,15 @@
 from transports.transportmount import TransportInterface
 from fileobject import FileObject
 
+import platform
 import urlfunctions
 import os
 import time
 import errno
 
-try:
+if platform.system() == "Windows":
     OSERROR = WindowsError
-except NameError:
+else:
     OSERROR = OSError
 
 class FileTransport(TransportInterface):
@@ -28,7 +29,10 @@ class FileTransport(TransportInterface):
     # Conversely, for getattr().
     getattr_attributes = set(("size", "mtime", "atime", "perms", "owner", "group"))
     # List the attributes setattr() can set.
-    setattr_attributes = set(("mtime", "atime", "perms", "owner", "group"))
+    if platform.system() == "Windows":
+        setattr_attributes = set(("mtime", "atime", "perms"))
+    else:
+        setattr_attributes = set(("mtime", "atime", "perms", "owner", "group"))
     # Define attributes that can be used to decide whether a file has been changed
     # or not.
     evaluation_attributes = set(("size", "mtime"))
@@ -166,7 +170,7 @@ class FileTransport(TransportInterface):
                 os.chmod(filename, attributes["perms"])
             except OSERROR:
                 print "Permission denied, could not set perms."
-        if "owner" in attributes or "group" in attributes:
+        if platform.system() != "Windows" and ("owner" in attributes or "group" in attributes):
             try:
                 os.chown(filename, attributes.get("owner", -1), attributes.get("group", -1))
             except OSERROR:
