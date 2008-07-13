@@ -26,7 +26,6 @@ class FileTransport(TransportInterface):
     # supports.
     listdir_attributes = set()
     # Conversely, for getattr().
-    # TODO: Get/set as many attributes as possible.
     getattr_attributes = set(("size", "mtime", "atime", "perms", "owner", "group"))
     # List the attributes setattr() can set.
     setattr_attributes = set(("mtime", "perms", "owner", "group"))

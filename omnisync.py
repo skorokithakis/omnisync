@@ -38,6 +38,8 @@ class Configuration:
             self.exclude = None
         if options.include:
             self.include = re.compile(options.include)
+            if not self.exclude:
+                self.exclude = re.compile("")
         else:
             self.include = None
 
@@ -207,6 +209,7 @@ class OmniSync:
         # the source might have the same name as a file, so we need to delete files first.
         for item in create_dirs:
             dest_url = url_splice(self.source, item.url, self.destination)
+            # Set attributes for directories too, in all our mkdir()s.
             self.destination_transport.mkdir(dest_url)
 
     def recurse(self):
