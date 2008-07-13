@@ -1,4 +1,4 @@
-"""SFTP access module."""
+"""SFTP transport module."""
 
 from transports.transportmount import TransportInterface
 from fileobject import FileObject
@@ -8,8 +8,8 @@ import urlfunctions
 import time
 import errno
 
-class FileTransport(TransportInterface):
-    """SFTP access class."""
+class SFTPTransport(TransportInterface):
+    """SFTP transport class."""
     # Transports should declare the protocols attribute to specify the protocol(s)
     # they can handle.
     protocols = ("sftp", )
