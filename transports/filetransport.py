@@ -147,9 +147,10 @@ class FileTransport(TransportInterface):
             statinfo = os.stat(self._get_filename(url))
         except OSERROR:
             return dict([(x, None) for x in self.getattr_attributes])
+        # Turn times to ints because checks fail sometimes due to rounding errors.
         return {"size": statinfo.st_size,
-                "mtime": statinfo.st_mtime,
-                "atime": statinfo.st_atime,
+                "mtime": int(statinfo.st_mtime),
+                "atime": int(statinfo.st_atime),
                 "perms": statinfo.st_mode,
                 "owner": statinfo.st_uid,
                 "group": statinfo.st_gid,

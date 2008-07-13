@@ -7,6 +7,9 @@ import logging
 import optparse
 import time
 import re
+import locale
+
+from progress import Progress
 
 from version import VERSION
 from transports.transportmount import TransportInterface
@@ -66,7 +69,9 @@ class OmniSync:
         self.config = None
         self.max_attributes = None
         self.max_evaluation_attributes = None
+
         self.file_counter = 0
+        self.bytes_total = 0
 
         # Initialise the logger.
         logging.basicConfig(level=logging.INFO, format='%(message)s')
@@ -179,7 +184,13 @@ class OmniSync:
 
         self.source_transport.disconnect()
         self.destination_transport.disconnect()
-        logging.info("Copied %s files in %.2f sec." % (self.file_counter, time.time() - start_time))
+        total_time = time.time() - start_time
+        locale.setlocale(locale.LC_NUMERIC, '')
+        logging.info("Copied %s files (%s bytes) in %s sec (%s Bps)." % (
+                      locale.format("%d", self.file_counter, True),
+                      locale.format("%d", self.bytes_total, True),
+                      locale.format("%.2f", total_time, True),
+                      locale.format("%d", int(self.bytes_total / total_time), True)))
 
     def set_destination_attributes(self, destination, attributes):
         """Set the destination's attributes. This is a wrapper for the transport's _setattr_."""
@@ -233,7 +244,7 @@ class OmniSync:
         # the source might have the same name as a file, so we need to delete files first.
         for item in create_dirs:
             dest_url = url_splice(self.source, item.url, self.destination)
-            # Set attributes for directories too, in all our mkdir()s.
+            # TODO: Set attributes for directories too, in all our mkdir()s.
             self.destination_transport.mkdir(dest_url)
 
     def recurse(self):
@@ -420,21 +431,23 @@ class OmniSync:
             self.destination_transport.close()
             self.source_transport.close()
             raise
+        if hasattr(source, "size"):
+            prog = Progress(source.size)
         bytes_done = 0
         data = self.source_transport.read(buffer_size)
         while data:
             if not bytes_done % 5:
                 # The source file might not have a size attribute.
                 if hasattr(source, "size"):
-                    print "Copied %s/%s bytes (%s%% done).\r" % (bytes_done,
-                                                               source.size,
-                                                               (100*bytes_done)/source.size),
+                    done = prog.progress(bytes_done)
+                    print "Copied %(item)s/%(items)s bytes (%(percentage)s%%) " \
+                    "%(elapsed_time)s/%(total_time)s.\r" % done,
                 else:
                     print "Copied %s bytes.\r" % (bytes_done),
             bytes_done += len(data)
             self.destination_transport.write(data)
             data = self.source_transport.read(buffer_size)
-        print ""
+        self.bytes_total += bytes_done
         self.destination_transport.close()
         self.source_transport.close()
 
