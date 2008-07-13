@@ -32,16 +32,28 @@ class Configuration:
         # TODO: Improve support for this.
         self.dry_run = options.dry_run
         self.recursive = options.recursive
-        if options.exclude:
-            self.exclude = re.compile(options.exclude)
+        if options.exclude_files:
+            self.exclude_files = re.compile(options.exclude_files)
         else:
-            self.exclude = None
-        if options.include:
-            self.include = re.compile(options.include)
-            if not self.exclude:
-                self.exclude = re.compile("")
+            # An unmatchable regex, to save us from checking if this is set. Hopefully it's
+            # not too slow.
+            self.exclude_files = re.compile("^$")
+        if options.include_files:
+            self.include_files = re.compile(options.include_files)
+            if not self.exclude_files:
+                self.exclude_files = re.compile("")
         else:
-            self.include = None
+            self.include_files = re.compile("^$")
+        if options.exclude_dirs:
+            self.exclude_dirs = re.compile(options.exclude_dirs)
+        else:
+            self.exclude_dirs = re.compile("^$")
+        if options.include_dirs:
+            self.include_dirs = re.compile(options.include_dirs)
+            if not self.exclude_dirs:
+                self.exclude_dirs = re.compile("")
+        else:
+            self.include_dirs = re.compile("^$")
 
 class OmniSync:
     """The main program class."""
@@ -246,40 +258,53 @@ class OmniSync:
                 self.compare_and_copy(self.source, dest_url)
             else:
                 self.compare_and_copy(self.source, self.destination)
-        else:
-            directory_stack = [FileObject(self.source_transport, self.source, {"isdir": True})]
+            return
 
-            # Depth-first tree traversal.
-            while directory_stack:
-                item = directory_stack.pop()
-                logging.debug("URL %s is %sa directory." % \
-                              (item.url, not item.isdir and "not " or ""))
-                if item.isdir:
-                    # Don't skip the first directory.
-                    if not self.config.recursive and item.url != self.source:
-                        logging.info("Skipping directory %s..." % item)
-                        continue
-                    # Obtain a directory list.
-                    new_dir_list = []
-                    for new_file in reversed(self.source_transport.listdir(item.url)):
-                        if (self.config.exclude and self.config.exclude.search(new_file.url)) and \
-                            not (self.config.include and self.config.include.search(new_file.url)):
+        # If source is a directory...
+        directory_stack = [FileObject(self.source_transport, self.source, {"isdir": True})]
+
+        # Depth-first tree traversal.
+        while directory_stack:
+            item = directory_stack.pop()
+            logging.debug("URL %s is %sa directory." % \
+                          (item.url, not item.isdir and "not " or ""))
+            if item.isdir:
+                # Don't skip the first directory.
+                if not self.config.recursive and item.url != self.source:
+                    logging.info("Skipping directory %s..." % item)
+                    continue
+                # Obtain a directory list.
+                new_dir_list = []
+                for new_file in reversed(self.source_transport.listdir(item.url)):
+                    # We have separate exclusion patterns for files and directories.
+                    if new_file.isdir:
+                        if self.config.exclude_dirs.search(new_file.url) and \
+                            not self.config.include_dirs.search(new_file.url):
+                            # If we are told to exclude the directory and not told to include it,
+                            # then act as if it doesn't exist.
+                            logging.debug("Skipping %s..." % (new_file))
+                        else:
+                            # Otherwise, append the file to the directory list.
+                            new_dir_list.append(new_file)
+                    else:
+                        if self.config.exclude_files.search(new_file.url) and \
+                            not self.config.include_files.search(new_file.url):
                             # If we are told to exclude the file and not told to include it, then
                             # act as if it doesn't exist.
                             logging.debug("Skipping %s..." % (new_file))
                         else:
                             # Otherwise, append the file to the directory list.
                             new_dir_list.append(new_file)
-                    dest = url_splice(self.source, item.url, self.destination)
-                    dest = FileObject(self.destination_transport, dest)
-                    logging.debug("Comparing directories %s and %s..." % (item.url, dest.url))
-                    self.compare_directories(new_dir_list, dest.url)
-                    directory_stack.extend(new_dir_list)
-                else:
-                    dest_url = url_splice(self.source, item.url, self.destination)
-                    logging.debug("Destination URL is %s." % dest_url)
-                    dest = FileObject(self.destination_transport, dest_url)
-                    self.compare_and_copy(item, dest)
+                dest = url_splice(self.source, item.url, self.destination)
+                dest = FileObject(self.destination_transport, dest)
+                logging.debug("Comparing directories %s and %s..." % (item.url, dest.url))
+                self.compare_directories(new_dir_list, dest.url)
+                directory_stack.extend(new_dir_list)
+            else:
+                dest_url = url_splice(self.source, item.url, self.destination)
+                logging.debug("Destination URL is %s." % dest_url)
+                dest = FileObject(self.destination_transport, dest_url)
+                self.compare_and_copy(item, dest)
 
     def compare_and_copy(self, source, destination):
         """Compare the attributes of two files and copy if changed.
@@ -452,14 +477,24 @@ def parse_arguments():
                       dest="attributes",
                       help="preserve group"
                       )
-    parser.add_option("--exclude",
-                      dest="exclude",
-                      help="exclude objects matching the PATTERN regex",
+    parser.add_option("--exclude-files",
+                      dest="exclude_files",
+                      help="exclude files matching the PATTERN regex",
                       metavar="PATTERN"
                       )
-    parser.add_option("--include",
-                      dest="include",
-                      help="don't exclude objects matching the PATTERN regex",
+    parser.add_option("--include-files",
+                      dest="include_files",
+                      help="don't exclude files matching the PATTERN regex",
+                      metavar="PATTERN"
+                      )
+    parser.add_option("--exclude-dirs",
+                      dest="exclude_dirs",
+                      help="exclude directories matching the PATTERN regex",
+                      metavar="PATTERN"
+                      )
+    parser.add_option("--include-dirs",
+                      dest="include_dirs",
+                      help="don't exclude directories matching the PATTERN regex",
                       metavar="PATTERN"
                       )
     (options, args) = parser.parse_args()
