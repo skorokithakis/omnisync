@@ -166,7 +166,8 @@ class VirtualTransport(TransportInterface):
         except KeyError:
             return {"size": None}
         if attrs is None:
-            raise IOError, "Requested file is a directory."
+            # Directories have no attributes in our virtual FS.
+            return {"size": None}
         else:
             return attrs
 
