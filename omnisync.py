@@ -188,8 +188,15 @@ class OmniSync:
             url = url_split(append_slash(item.url, False),
                             self.source_transport.uses_hostname,
                             True).file
+            # If the file exists and both the source and destination are of the same type...
             if url in dest_paths and dest_paths[url].isdir == item.isdir:
-                # Remove it from the list.
+                # ...if it's a directory, set its attributes as well...
+                if dest_paths[url].isdir:
+                    logging.info("Setting attributes for %s..." % url)
+                    item.populate_attributes(self.max_evaluation_attributes |
+                                             self.config.requested_attributes)
+                    self.set_destination_attributes(dest_paths[url].url, item.attributes)
+                # ...and remove it from the list.
                 del dest_paths[url]
             else:
                 # If an item is in the source but not the destination tree...
@@ -217,7 +224,7 @@ class OmniSync:
             self.destination_transport.mkdir(dest_url)
             item.populate_attributes(self.max_evaluation_attributes |
                                        self.config.requested_attributes)
-            self.set_destination_attributes(dest_url, source.attributes)
+            self.set_destination_attributes(dest_url, item.attributes)
 
     def include_file(self, item):
         """Check whether to include a file or not given our exclusion patterns."""
