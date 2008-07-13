@@ -9,6 +9,7 @@ import time
 import re
 import locale
 
+from configuration import Configuration
 from progress import Progress
 
 from version import VERSION
@@ -16,46 +17,6 @@ from transports.transportmount import TransportInterface
 from fileobject import FileObject
 from urlfunctions import url_splice, url_split, url_join, normalise_url, append_slash
 
-class Configuration:
-    """Hold various configuration options."""
-
-    def __init__(self, options):
-        """Retrieve the configuration from the parser options."""
-        if options.verbosity == 0:
-            logging.getLogger().setLevel(logging.ERROR)
-        elif options.verbosity == 1:
-            logging.getLogger().setLevel(logging.INFO)
-        elif options.verbosity == 2:
-            logging.getLogger().setLevel(logging.DEBUG)
-        self.delete = options.delete
-        if options.attributes:
-            self.requested_attributes = set(options.attributes)
-        else:
-            self.requested_attributes = set()
-        self.dry_run = options.dry_run
-        self.recursive = options.recursive
-        if options.exclude_files:
-            self.exclude_files = re.compile(options.exclude_files)
-        else:
-            # An unmatchable regex, to save us from checking if this is set. Hopefully it's
-            # not too slow.
-            self.exclude_files = re.compile("^$")
-        if options.include_files:
-            self.include_files = re.compile(options.include_files)
-            if not self.exclude_files:
-                self.exclude_files = re.compile("")
-        else:
-            self.include_files = re.compile("^$")
-        if options.exclude_dirs:
-            self.exclude_dirs = re.compile(options.exclude_dirs)
-        else:
-            self.exclude_dirs = re.compile("^$")
-        if options.include_dirs:
-            self.include_dirs = re.compile(options.include_dirs)
-            if not self.exclude_dirs:
-                self.exclude_dirs = re.compile("")
-        else:
-            self.include_dirs = re.compile("^$")
 
 class OmniSync:
     """The main program class."""
@@ -184,12 +145,16 @@ class OmniSync:
         self.source_transport.disconnect()
         self.destination_transport.disconnect()
         total_time = time.time() - start_time
+        try:
+            bps = locale.format("%d", int(self.bytes_total / total_time), True)
+        except ZeroDivisionError:
+            bps = "inf"
         locale.setlocale(locale.LC_NUMERIC, '')
         logging.info("Copied %s files (%s bytes) in %s sec (%s Bps)." % (
                       locale.format("%d", self.file_counter, True),
                       locale.format("%d", self.bytes_total, True),
                       locale.format("%.2f", total_time, True),
-                      locale.format("%d", int(self.bytes_total / total_time), True)))
+                      bps))
 
     def set_destination_attributes(self, destination, attributes):
         """Set the destination's attributes. This is a wrapper for the transport's _setattr_."""
@@ -254,34 +219,52 @@ class OmniSync:
                                        self.config.requested_attributes)
             self.set_destination_attributes(dest_url, source.attributes)
 
+    def include_file(self, item):
+        """Check whether to include a file or not given our exclusion patterns."""
+        # We have separate exclusion patterns for files and directories.
+        if item.isdir:
+            if self.config.exclude_dirs.search(item.url) and \
+                not self.config.include_dirs.search(item.url):
+                # If we are told to exclude the directory and not told to include it,
+                # act as if it doesn't exist.
+                return False
+            else:
+                # Otherwise, append the file to the directory list.
+                return True
+        else:
+            if self.config.exclude_files.search(new_file.url) and \
+                not self.config.include_files.search(new_file.url):
+                # If we are told to exclude the file and not told to include it,
+                # act as if it doesn't exist.
+                return False
+            else:
+                # Otherwise, append the file to the directory list.
+                return True
+
     def recurse(self):
         """Recursively synchronise everything."""
         source_dir_list = self.source_transport.listdir(self.source)
+        dest = FileObject(self.destination_transport, self.destination)
         # If the source is a file, rather than a directory, just copy it. We know for sure that
         # it exists from the checks we did before, so the "False" return value can't be because
         # of that.
         if not source_dir_list:
-            dest_isdir = self.destination_transport.isdir(self.destination)
             # If the destination ends in a slash or is an actual directory:
-            if self.destination.endswith("/") or \
-               not self.destination.endswith("/") and dest_isdir:
-                if not dest_isdir:
-                    self.destination_transport.mkdir(self.destination)
+            if self.destination.endswith("/") or dest.isdir:
+                if not dest.isdir:
+                    self.destination_transport.mkdir(dest.url)
                 # Splice the source filename onto the destination URL.
-                dest_url = url_split(self.destination)
+                dest_url = url_split(dest.url)
                 dest_url.file = url_split(self.source,
                                           uses_hostname=self.source_transport.uses_hostname,
                                           split_filename=True).file
                 dest_url = url_join(dest_url)
-                self.compare_and_copy(
-                    FileObject(self.source_transport, self.source, {"isdir": False}),
-                    FileObject(self.destination_transport, dest_url, {"isdir": False}),
-                    )
             else:
-                self.compare_and_copy(
-                    FileObject(self.source_transport, self.source, {"isdir": False}),
-                    FileObject(self.destination_transport, self.destination, {"isdir": False}),
-                    )
+                dest_url = self.destination
+            self.compare_and_copy(
+                FileObject(self.source_transport, self.source, {"isdir": False}),
+                FileObject(self.destination_transport, dest_url, {"isdir": False}),
+                )
             return
 
         # If source is a directory...
@@ -300,25 +283,10 @@ class OmniSync:
                 # Obtain a directory list.
                 new_dir_list = []
                 for new_file in reversed(self.source_transport.listdir(item.url)):
-                    # We have separate exclusion patterns for files and directories.
-                    if new_file.isdir:
-                        if self.config.exclude_dirs.search(new_file.url) and \
-                            not self.config.include_dirs.search(new_file.url):
-                            # If we are told to exclude the directory and not told to include it,
-                            # then act as if it doesn't exist.
-                            logging.debug("Skipping %s..." % (new_file))
-                        else:
-                            # Otherwise, append the file to the directory list.
-                            new_dir_list.append(new_file)
+                    if self.include_file(new_file):
+                        new_dir_list.append(new_file)
                     else:
-                        if self.config.exclude_files.search(new_file.url) and \
-                            not self.config.include_files.search(new_file.url):
-                            # If we are told to exclude the file and not told to include it, then
-                            # act as if it doesn't exist.
-                            logging.debug("Skipping %s..." % (new_file))
-                        else:
-                            # Otherwise, append the file to the directory list.
-                            new_dir_list.append(new_file)
+                        logging.debug("Skipping %s..." % (new_file))
                 dest = url_splice(self.source, item.url, self.destination)
                 dest = FileObject(self.destination_transport, dest)
                 logging.debug("Comparing directories %s and %s..." % (item.url, dest.url))

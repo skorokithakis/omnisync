@@ -5,7 +5,6 @@ from fileobject import FileObject
 
 import getpass
 import urlfunctions
-import paramiko
 import time
 import errno
 
@@ -44,6 +43,8 @@ class FileTransport(TransportInterface):
     # Transports should also implement the following methods:
     def connect(self, url):
         """Initiate a connection to the remote host."""
+        # We import paramiko only when we need it because its import is really slow.
+        import paramiko
         url = urlfunctions.url_split(url)
         if not url.port:
             url.port = 22
