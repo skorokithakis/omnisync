@@ -143,7 +143,7 @@ class FileTransport(TransportInterface):
         try:
             statinfo = os.stat(self._get_filename(url))
         except OSERROR:
-            return dict([(x, None) for x in getattr_attributes])
+            return dict([(x, None) for x in self.getattr_attributes])
         return {"size": statinfo.st_size,
                 "mtime": statinfo.st_mtime,
                 "atime": statinfo.st_atime,
@@ -160,7 +160,7 @@ class FileTransport(TransportInterface):
         if "perms" in attributes:
             os.chmod(filename, attributes["perms"])
         if "owner" in attributes or "group" in attributes:
-            os.chown(attributes.get("owner", -1), attributes.get("group", -1))
+            os.chown(filename, attributes.get("owner", -1), attributes.get("group", -1))
 
     def exists(self, url):
         """Return True if a given path exists, False otherwise."""
