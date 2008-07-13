@@ -32,7 +32,6 @@ class Configuration:
             self.requested_attributes = set(options.attributes)
         else:
             self.requested_attributes = set()
-        # TODO: Improve support for this.
         self.dry_run = options.dry_run
         self.recursive = options.recursive
         if options.exclude_files:
@@ -198,15 +197,21 @@ class OmniSync:
         # the case.
         if not self.config.dry_run and \
            set(attributes) & set(self.destination_transport.setattr_attributes):
-            self.destination_transport.setattr(destination.url, attributes)
+            self.destination_transport.setattr(destination, attributes)
 
-    def compare_directories(self, source_dir_list, dest_dir_url):
+    def compare_directories(self, source, source_dir_list, dest_dir_url):
         """Compare the source's directory list with the destination's and perform any actions
            necessary, such as deleting files or creating directories."""
         dest_dir_list = self.destination_transport.listdir(dest_dir_url)
         if not dest_dir_list:
             if not self.config.dry_run:
                 self.destination_transport.mkdir(dest_dir_url)
+                # Populate the item's attributes for the remote directory so we can set them.
+                source.populate_attributes((self.max_evaluation_attributes &
+                                            self.destination_transport.setattr_attributes) |
+                                           self.config.requested_attributes)
+
+                self.set_destination_attributes(dest_dir_url, source.attributes)
             dest_dir_list = []
         # Construct a dictionary of {filename: FileObject} items.
         dest_paths = dict([(url_split(append_slash(x.url, False),
@@ -244,8 +249,10 @@ class OmniSync:
         # the source might have the same name as a file, so we need to delete files first.
         for item in create_dirs:
             dest_url = url_splice(self.source, item.url, self.destination)
-            # TODO: Set attributes for directories too, in all our mkdir()s.
             self.destination_transport.mkdir(dest_url)
+            item.populate_attributes(self.max_evaluation_attributes |
+                                       self.config.requested_attributes)
+            self.set_destination_attributes(dest_url, source.attributes)
 
     def recurse(self):
         """Recursively synchronise everything."""
@@ -315,7 +322,7 @@ class OmniSync:
                 dest = url_splice(self.source, item.url, self.destination)
                 dest = FileObject(self.destination_transport, dest)
                 logging.debug("Comparing directories %s and %s..." % (item.url, dest.url))
-                self.compare_directories(new_dir_list, dest.url)
+                self.compare_directories(item, new_dir_list, dest.url)
                 directory_stack.extend(new_dir_list)
             else:
                 dest_url = url_splice(self.source, item.url, self.destination)
@@ -370,7 +377,7 @@ class OmniSync:
                     return
                 else:
                     # If the file was successfully copied, set its attributes.
-                    self.set_destination_attributes(destination, source.attributes)
+                    self.set_destination_attributes(destination.url, source.attributes)
                     self.file_counter += 1
                     return
         else:
@@ -378,7 +385,7 @@ class OmniSync:
             logging.info("Files \"%s\"\n      and \"%s\" are identical, skipping..." %
                          (source, destination))
             # ...but set the attributes anyway.
-            self.set_destination_attributes(destination, source.attributes)
+            self.set_destination_attributes(destination.url, source.attributes)
             self.file_counter += 1
 
     def recursively_delete(self, directory):

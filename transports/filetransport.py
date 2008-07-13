@@ -165,17 +165,17 @@ class FileTransport(TransportInterface):
             try:
                 os.utime(filename, (atime, mtime))
             except OSERROR:
-                print "Permission denied, could not set atime/mtime."
+                print "Permission denied, could not set atime/mtime on %s." % url
         if "perms" in attributes:
             try:
                 os.chmod(filename, attributes["perms"])
             except OSERROR:
-                print "Permission denied, could not set perms."
+                print "Permission denied, could not set perms on %s." % url
         if platform.system() != "Windows" and ("owner" in attributes or "group" in attributes):
             try:
                 os.chown(filename, attributes.get("owner", -1), attributes.get("group", -1))
             except OSERROR:
-                print "Permission denied, could not set uid/gid."
+                print "Permission denied, could not set uid/gid on %s." % url
 
     def exists(self, url):
         """Return True if a given path exists, False otherwise."""
