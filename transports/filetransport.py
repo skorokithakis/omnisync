@@ -27,9 +27,9 @@ class FileTransport(TransportInterface):
     listdir_attributes = set()
     # Conversely, for getattr().
     # TODO: Get/set as many attributes as possible.
-    getattr_attributes = set(("size", "mtime"))
+    getattr_attributes = set(("size", "mtime", "atime", "perms", "owner", "group"))
     # List the attributes setattr() can set.
-    setattr_attributes = set(("mtime", ))
+    setattr_attributes = set(("mtime", "perms", "owner", "group"))
     # Define attributes that can be used to decide whether a file has been changed
     # or not.
     evaluation_attributes = set(("size", "mtime"))
@@ -143,14 +143,24 @@ class FileTransport(TransportInterface):
         try:
             statinfo = os.stat(self._get_filename(url))
         except OSERROR:
-            return {"size": None, "mtime": None}
-        return {"size": statinfo.st_size, "mtime": statinfo.st_mtime}
+            return dict([(x, None) for x in getattr_attributes])
+        return {"size": statinfo.st_size,
+                "mtime": statinfo.st_mtime,
+                "atime": statinfo.st_atime,
+                "perms": statinfo.st_mode,
+                "owner": statinfo.st_uid,
+                "group": statinfo.st_gid,
+                }
 
     def setattr(self, url, attributes):
         """Set a file's attributes if possible."""
-        # We can only set mtime here.
+        filename = self._get_filename(url)
         if "mtime" in attributes:
-            os.utime(self._get_filename(url), (time.time(), attributes["mtime"]))
+            os.utime(filename, (time.time(), attributes["mtime"]))
+        if "perms" in attributes:
+            os.chmod(filename, attributes["perms"])
+        if "owner" in attributes or "group" in attributes:
+            os.chown(attributes.get("owner", -1), attributes.get("group", -1))
 
     def exists(self, url):
         """Return True if a given path exists, False otherwise."""
