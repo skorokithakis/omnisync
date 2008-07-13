@@ -37,7 +37,7 @@ class FileTransport(TransportInterface):
     buffer_size = 2**15
 
     def __init__(self):
-        self.file_handle = None
+        self._file_handle = None
 
     def _get_filename(self, url):
         """Retrieve the local filename from a given URL."""
@@ -58,17 +58,17 @@ class FileTransport(TransportInterface):
 
            Raises IOError if anything goes wrong.
         """
-        if self.file_handle:
+        if self._file_handle:
             raise IOError, "Another file is already open."
-        self.file_handle = open(self._get_filename(url), mode)
+        self._file_handle = open(self._get_filename(url), mode)
 
     def read(self, size):
         """Read _size_ bytes from the open file."""
-        return self.file_handle.read(size)
+        return self._file_handle.read(size)
 
     def write(self, data):
         """Write _data_ to the open file."""
-        self.file_handle.write(data)
+        self._file_handle.write(data)
 
     def remove(self, url):
         """Remove the specified file."""
@@ -90,9 +90,9 @@ class FileTransport(TransportInterface):
 
     def close(self):
         """Close the open file."""
-        if self.file_handle:
-            self.file_handle.close()
-            self.file_handle = None
+        if self._file_handle:
+            self._file_handle.close()
+            self._file_handle = None
 
     def mkdir(self, url):
         """Recursively make the given directories at the current URL."""
