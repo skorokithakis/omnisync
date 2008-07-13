@@ -6,7 +6,6 @@ import sys
 import logging
 import optparse
 import time
-import re
 import locale
 
 from configuration import Configuration

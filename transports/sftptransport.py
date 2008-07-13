@@ -43,8 +43,12 @@ class FileTransport(TransportInterface):
     # Transports should also implement the following methods:
     def connect(self, url):
         """Initiate a connection to the remote host."""
-        # We import paramiko only when we need it because its import is really slow.
-        import paramiko
+        try:
+            # We import paramiko only when we need it because its import is really slow.
+            import paramiko
+        except ImportError:
+            print "You will need to install the paramiko library to have sftp support."
+            raise
         url = urlfunctions.url_split(url)
         if not url.port:
             url.port = 22
