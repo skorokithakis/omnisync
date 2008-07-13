@@ -255,9 +255,15 @@ class OmniSync:
                                           uses_hostname=self.source_transport.uses_hostname,
                                           split_filename=True).file
                 dest_url = url_join(dest_url)
-                self.compare_and_copy(self.source, dest_url)
+                self.compare_and_copy(
+                    FileObject(self.source_transport, self.source, {"isdir": False}),
+                    FileObject(self.destination_transport, dest_url, {"isdir": False}),
+                    )
             else:
-                self.compare_and_copy(self.source, self.destination)
+                self.compare_and_copy(
+                    FileObject(self.source_transport, self.source, {"isdir": False}),
+                    FileObject(self.destination_transport, self.destination, {"isdir": False}),
+                    )
             return
 
         # If source is a directory...
@@ -414,11 +420,21 @@ class OmniSync:
             self.destination_transport.close()
             self.source_transport.close()
             raise
+        bytes_done = 0
         data = self.source_transport.read(buffer_size)
         while data:
-            # TODO: Implement a progress bar.
+            if not bytes_done % 5:
+                # The source file might not have a size attribute.
+                if hasattr(source, "size"):
+                    print "Copied %s/%s bytes (%s%% done).\r" % (bytes_done,
+                                                               source.size,
+                                                               (100*bytes_done)/source.size),
+                else:
+                    print "Copied %s bytes.\r" % (bytes_done),
+            bytes_done += len(data)
             self.destination_transport.write(data)
             data = self.source_transport.read(buffer_size)
+        print ""
         self.destination_transport.close()
         self.source_transport.close()
 
