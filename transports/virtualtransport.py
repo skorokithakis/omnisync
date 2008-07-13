@@ -150,9 +150,10 @@ class VirtualTransport(TransportInterface):
     def isdir(self, url):
         """Return True if the given URL is a directory, False if it is a file or
            does not exist."""
-        # If a file path starts with the directory we're looking for, there's obviously a directory
-        # with that name.
-        return self._filesystem[self._get_filename(url)] is None
+        filename = self._get_filename(url)
+        if filename not in self._filesystem:
+            return False
+        return self._filesystem[filename] is None
 
     def getattr(self, url, attributes):
         """Retrieve as many file attributes as we can, at the very *least* the requested ones.
