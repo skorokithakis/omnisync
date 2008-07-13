@@ -4,7 +4,7 @@ import re
 
 URL_RE_HOSTNAME = re.compile("""^(?:(?P<scheme>\w+)://|)
                                  (?P<netloc>(?:(?P<username>.*?)(?::(?P<password>.*?)|)@|)
-                                 (?P<hostname>[^/]*?)(?::(?P<port>\d+)|))
+                                 (?P<hostname>[^@/]*?)(?::(?P<port>\d+)|))
                                  (?:(?P<path>/(?:.*?/|))
                                  /?(?P<file>[^/]*?|)|)
                                  (?:\;(?P<params>.*?)|)
