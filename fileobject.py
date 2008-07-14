@@ -3,6 +3,7 @@
 class FileObject(object):
     """A file object that caches file attributes."""
     def __init__(self, transport, url, attributes=None):
+        # We do it this way because otherwise this class's __setattr__ is called.
         super(FileObject, self).__setattr__("_transport", transport)
         if not attributes:
             attributes = {}

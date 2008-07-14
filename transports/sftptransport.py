@@ -54,7 +54,7 @@ class SFTPTransport(TransportInterface):
             # We import paramiko only when we need it because its import is really slow.
             import paramiko
         except ImportError:
-            print "You will need to install the paramiko library to have sftp support."
+            print "SFTP: You will need to install the paramiko library to have sftp support."
             raise
         url = urlfunctions.url_split(url)
         if not url.port:
@@ -64,7 +64,7 @@ class SFTPTransport(TransportInterface):
             url.username = getpass.getuser()
         if not url.password:
             url.password = getpass.getpass(
-                "Please enter the password for %s@%s:" % (url.username, url.hostname)
+                "SFTP: Please enter the password for %s@%s:" % (url.username, url.hostname)
                 )
         self._transport.connect(username=url.username, password=url.password)
         self._connection = paramiko.SFTPClient.from_transport(self._transport)
@@ -202,12 +202,12 @@ class SFTPTransport(TransportInterface):
             try:
                 self._connection.utime(filename, (atime, mtime))
             except IOError:
-                print "Permission denied, could not set atime/mtime."
+                print "SFTP: Permission denied, could not set atime/mtime."
         if "perms" in attributes:
             try:
                 self._connection.chmod(filename, attributes["perms"])
             except IOError:
-                print "Permission denied, could not set perms."
+                print "SFTP: Permission denied, could not set perms."
         if "owner" in attributes or "group" in attributes:
             # If we're missing one, get it.
             if not "owner" in attributes or not "group" in attributes:
@@ -220,7 +220,7 @@ class SFTPTransport(TransportInterface):
             try:
                 self._connection.chown(filename, owner, group)
             except IOError:
-                print "Permission denied, could not set uid/gid."
+                print "SFTP: Permission denied, could not set uid/gid."
 
     def exists(self, url):
         """Return True if a given path exists, False otherwise."""
