@@ -140,8 +140,7 @@ class SFTPTransport(TransportInterface):
         attribute_dict is a dictionary of {key: value} pairs for any applicable
         attributes from ("size", "mtime", "atime", "ctime", "isdir").
         """
-        if not url.endswith("/"):
-            url = url + "/"
+        url = urlfunctions.append_slash(url, True)
         try:
             dir_list = self._connection.listdir_attr(self._get_filename(url))
         except IOError:
