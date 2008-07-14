@@ -81,13 +81,13 @@ class OmniSync:
             logging.error("The destination protocol does not support file deletion.")
             leave = True
         elif self.config.requested_attributes - self.source_transport.getattr_attributes:
-            logging.error("Requested arguments cannot be read: %s." %
+            logging.error("Requested attributes cannot be read: %s." %
                           ", ".join(x for x in self.config.requested_attributes - \
                                     self.source_transport.getattr_attributes)
                           )
             leave = True
         elif self.config.requested_attributes - self.destination_transport.setattr_attributes:
-            logging.error("Requested arguments cannot be set: %s." %
+            logging.error("Requested attributes cannot be set: %s." %
                           ", ".join(x for x in self.config.requested_attributes - \
                                     self.destination_transport.setattr_attributes)
                           )
@@ -344,6 +344,9 @@ class OmniSync:
             if getattr(source, key) != getattr(destination, key):
                 logging.debug("Source and destination %s was different (%s vs %s)." %\
                               (key, getattr(source, key), getattr(destination, key)))
+                if self.config.update and destination.mtime > source.mtime:
+                    logging.info("Destination file is newer and --update specified, skipping...")
+                    break
                 logging.info("Copying \"%s\"\n        to \"%s\"..." % (source, destination))
                 try:
                     self.copy_file(source, destination)
@@ -352,15 +355,14 @@ class OmniSync:
                 else:
                     # If the file was successfully copied, set its attributes.
                     self.set_destination_attributes(destination.url, source.attributes)
-                    self.file_counter += 1
-                    return
+                    break
         else:
             # The two files are identical, skip them...
             logging.info("Files \"%s\"\n      and \"%s\" are identical, skipping..." %
                          (source, destination))
             # ...but set the attributes anyway.
             self.set_destination_attributes(destination.url, source.attributes)
-            self.file_counter += 1
+        self.file_counter += 1
 
     def recursively_delete(self, directory):
         """Recursively delete a directory from the destination transport.
@@ -459,10 +461,15 @@ def parse_arguments():
                       dest="recursive",
                       help="recurse into directories",
                       )
+    parser.add_option("-u", "--update",
+                      action="store_true",
+                      dest="update",
+                      help="update only (don't overwrite newer files on destination)",
+                      )
     parser.add_option("--delete",
                       action="store_true",
                       dest="delete",
-                      help="delete extraneous files from destination dirs"
+                      help="delete extraneous files from destination"
                       )
     parser.add_option("-n", "--dry-run",
                       action="store_true",

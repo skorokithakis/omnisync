@@ -20,6 +20,9 @@ class Configuration:
         else:
             self.requested_attributes = set()
         self.dry_run = options.dry_run
+        self.update = options.update
+        if self.update:
+            self.requested_attributes.add("mtime")
         self.recursive = options.recursive
         if options.exclude_files:
             self.exclude_files = re.compile(options.exclude_files)
