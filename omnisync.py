@@ -144,11 +144,11 @@ class OmniSync:
         self.source_transport.disconnect()
         self.destination_transport.disconnect()
         total_time = time.time() - start_time
+        locale.setlocale(locale.LC_NUMERIC, '')
         try:
             bps = locale.format("%d", int(self.bytes_total / total_time), True)
         except ZeroDivisionError:
             bps = "inf"
-        locale.setlocale(locale.LC_NUMERIC, '')
         logging.info("Copied %s files (%s bytes) in %s sec (%s Bps)." % (
                       locale.format("%d", self.file_counter, True),
                       locale.format("%d", self.bytes_total, True),
