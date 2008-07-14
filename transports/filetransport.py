@@ -48,6 +48,13 @@ class FileTransport(TransportInterface):
         return split_url.path
 
     # Transports should also implement the following methods:
+    def add_options(self):
+        """Return the desired command-line plugin options.
+
+           Returns a tuple of ((args), {kwargs}) items for optparse's add_option().
+        """
+        return ()
+
     def connect(self, url):
         """This method does nothing, since we don't need to connect to the
            filesystem."""

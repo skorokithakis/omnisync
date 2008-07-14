@@ -52,6 +52,14 @@ class OmniSync:
                 else:
                     self.transports[protocol] = transport
 
+    def add_options(self, parser):
+        """Set plugin options on the command-line parser."""
+        for transport in self.transports.values():
+            for args, kwargs in transport().add_options():
+                kwargs["help"] = kwargs["help"] + " (%s)" % ", ".join(transport.protocols)
+                kwargs["dest"] = kwargs["dest"] + transport.protocols[0]
+                parser.add_option(*args, **kwargs)
+
     def check_locations(self):
         """Check that the two locations are suitable for synchronisation."""
         if url_split(self.source).get_dict().keys == ["scheme"]:
@@ -514,6 +522,8 @@ def parse_arguments():
                       help="don't exclude directories matching the PATTERN regex",
                       metavar="PATTERN"
                       )
+    # Allow the plugins to set their own options.
+    omnisync.add_options(parser)
     (options, args) = parser.parse_args()
     if len(args) != 2:
         parser.print_help()

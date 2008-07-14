@@ -46,6 +46,13 @@ class VirtualTransport(TransportInterface):
         return filename
 
     # Transports should also implement the following methods:
+    def add_options(self):
+        """Return the desired command-line plugin options.
+
+           Returns a tuple of ((args), {kwargs}) items for optparse's add_option().
+        """
+        return ()
+
     def connect(self, url):
         """Unpickle the filesystem dictionary."""
         self._storage = urlfunctions.url_split(url).hostname

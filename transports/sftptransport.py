@@ -41,6 +41,13 @@ class SFTPTransport(TransportInterface):
         return split_url.path
 
     # Transports should also implement the following methods:
+    def add_options(self):
+        """Return the desired command-line plugin options.
+
+           Returns a tuple of ((args), {kwargs}) items for optparse's add_option().
+        """
+        return ()
+
     def connect(self, url):
         """Initiate a connection to the remote host."""
         try:
