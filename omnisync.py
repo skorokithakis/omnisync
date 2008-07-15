@@ -41,7 +41,10 @@ class OmniSync:
             if module.endswith("transport.py"):
                 module_name = module_path + "." + module[:-3]
                 logging.debug("Importing \"%s\"." % (module_name))
-                __import__(module_name)
+                try:
+                    __import__(module_name)
+                except ImportError:
+                    pass
 
         # Instantiate a dictionary in {"protocol": module} format.
         self.transports = {}

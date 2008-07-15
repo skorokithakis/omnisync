@@ -17,7 +17,7 @@ class SFTPTransport(TransportInterface):
     # and file://something is that in the former "something" is a hostname, but in the latter it's
     # a path.
     uses_hostname = True
-    # listdir_attributes is a tuple that contains the file attributes that listdir()
+    # listdir_attributes is a set that contains the file attributes that listdir()
     # supports.
     listdir_attributes = set(("size", "mtime", "atime", "perms", "owner", "group"))
     # Conversely, for getattr().
@@ -50,6 +50,8 @@ class SFTPTransport(TransportInterface):
 
     def connect(self, url):
         """Initiate a connection to the remote host."""
+        # Make the import global.
+        global paramiko
         try:
             # We import paramiko only when we need it because its import is really slow.
             import paramiko

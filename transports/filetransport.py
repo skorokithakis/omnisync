@@ -23,7 +23,7 @@ class FileTransport(TransportInterface):
     # and file://something is that in the former "something" is a hostname, but in the latter it's
     # a path.
     uses_hostname = False
-    # listdir_attributes is a tuple that contains the file attributes that listdir()
+    # listdir_attributes is a set that contains the file attributes that listdir()
     # supports.
     listdir_attributes = set()
     # Conversely, for getattr().

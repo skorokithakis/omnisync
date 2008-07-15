@@ -16,7 +16,7 @@ class VirtualTransport(TransportInterface):
     # and file://something is that in the former "something" is a hostname, but in the latter it's
     # a path.
     uses_hostname = True
-    # listdir_attributes is a tuple that contains the file attributes that listdir()
+    # listdir_attributes is a set that contains the file attributes that listdir()
     # supports.
     listdir_attributes = set()
     # Conversely, for getattr().
@@ -56,6 +56,9 @@ class VirtualTransport(TransportInterface):
     def connect(self, url):
         """Unpickle the filesystem dictionary."""
         self._storage = urlfunctions.url_split(url).hostname
+        # If the storage is in-memory only, don't do anything.
+        if self._storage == "memory":
+            return
         try:
             pickled_file = open(self._storage, "rb")
         except IOError:
@@ -65,6 +68,9 @@ class VirtualTransport(TransportInterface):
 
     def disconnect(self):
         """Pickle the filesystem to a file for persistence."""
+        # If the storage is in-memory only, don't do anything.
+        if self._storage == "memory":
+            return
         pickled_file = open(self._storage, "wb")
         pickle.dump(self._filesystem, pickled_file)
         pickled_file.close()
