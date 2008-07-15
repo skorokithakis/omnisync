@@ -85,7 +85,7 @@ class OmniSync:
         elif not hasattr(self.source_transport, "read"):
             logging.error("The source protocol is write-only.")
             leave = True
-        elif not hasattr(self.source_transport, "write"):
+        elif not hasattr(self.destination_transport, "write"):
             logging.error("The destination protocol is read-only.")
             leave = True
         elif not hasattr(self.destination_transport, "remove") and self.config.delete:
@@ -289,6 +289,7 @@ class OmniSync:
 
         # Depth-first tree traversal.
         while directory_stack:
+            # TODO: Rethink the assumption that a file cannot have the same name as a directory.
             item = directory_stack.pop()
             logging.debug("URL %s is %sa directory." % \
                           (item.url, not item.isdir and "not " or ""))
