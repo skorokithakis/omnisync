@@ -451,7 +451,7 @@ class OmniSync:
         self.source_transport.close()
 
 
-def parse_arguments():
+def parse_arguments(omnisync):
     """Parse the command-line arguments."""
     parser = optparse.OptionParser(
         usage="%prog [options] <source> <destination>",
@@ -538,6 +538,6 @@ def parse_arguments():
 
 if __name__ == "__main__":
     omnisync = OmniSync()
-    (options, args) = parse_arguments()
+    (options, args) = parse_arguments(omnisync)
     omnisync.config = Configuration(options)
     omnisync.sync(args[0], args[1])
