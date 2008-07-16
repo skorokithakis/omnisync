@@ -15,7 +15,7 @@ setup(name="omnisync",
       author="Stavros Korokithakis",
       author_email="stavros@korokithakis.net",
       url="http://launchpad.net/omnisync/",
-      packages=["omnisync"],
+      packages=["omnisync", "omnisync.transports"],
       requires=["paramiko", "boto"],
       scripts=scripts
      )
