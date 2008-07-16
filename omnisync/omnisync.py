@@ -534,11 +534,7 @@ def parse_arguments():
         sys.exit()
     return options, args
 
-def run():
-    """Run the program."""
+if __name__ == "__main__":
     (options, args) = parse_arguments()
     omnisync.config = Configuration(options)
     omnisync.sync(args[0], args[1])
-
-if __name__ == "__main__":
-    run()
