@@ -454,7 +454,7 @@ class OmniSync:
         self.source_transport.close()
 
 
-def parse_arguments(omnisync):
+def parse_arguments(osinst):
     """Parse the command-line arguments."""
     parser = optparse.OptionParser(
         usage="%prog [options] <source> <destination>",
@@ -532,15 +532,20 @@ def parse_arguments(omnisync):
                       metavar="PATTERN"
                       )
     # Allow the plugins to set their own options.
-    omnisync.add_options(parser)
+    osinst.add_options(parser)
     (options, args) = parser.parse_args()
     if len(args) != 2:
         parser.print_help()
         sys.exit()
     return options, args
 
-if __name__ == "__main__":
-    omnisync = OmniSync()
+omnisync = OmniSync()
+
+def run():
+    """Run the main script."""
     (options, args) = parse_arguments(omnisync)
     omnisync.config = Configuration(options)
     omnisync.sync(args[0], args[1])
+
+if __name__ == "__main__":
+    run()

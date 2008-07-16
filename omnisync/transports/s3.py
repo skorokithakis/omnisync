@@ -5,8 +5,6 @@ from omnisync.fileobject import FileObject
 from omnisync import urlfunctions
 
 import getpass
-import time
-import errno
 
 
 class S3Transport(TransportInterface):
@@ -62,6 +60,7 @@ class S3Transport(TransportInterface):
             # We import boto here so the program doesn't crash if the library is not installed.
             from boto.s3.connection import S3Connection
             from boto.s3.key import Key
+            import boto
         except ImportError:
             print "S3: You will need to install the boto library to have s3 support."
             raise
