@@ -1,2 +1,8 @@
 #!/usr/bin/env python
-pass
+from omnisync.omnisync import OmniSync, parse_arguments
+from omnisync.configuration import Configuration
+
+osync = OmniSync()
+(options, args) = parse_arguments()
+osync.config = Configuration(options)
+osync.sync(args[0], args[1])

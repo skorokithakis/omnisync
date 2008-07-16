@@ -1,7 +1,12 @@
 #!/usr/bin/env python
 
 from distutils.core import setup
-from version import VERSION
+from omnisync.version import VERSION
+
+if platform.system() == "Windows":
+    scripts = ["scripts/omnisync.bat"]
+else:
+    scripts = ["scripts/omnisync"]
 
 setup(name="omnisync",
       version=VERSION,
@@ -11,5 +16,5 @@ setup(name="omnisync",
       url="http://launchpad.net/omnisync/",
       packages=["omnisync"],
       requires=["paramiko", "boto"],
-      scripts=["omnisync"]
+      scripts=scripts
      )

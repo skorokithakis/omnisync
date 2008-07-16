@@ -3,3 +3,5 @@
 *.pyc
 *.kpf
 *.kpf
+build
+dist
