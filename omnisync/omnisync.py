@@ -16,7 +16,6 @@ from transports.transportmount import TransportInterface
 from fileobject import FileObject
 from urlfunctions import url_splice, url_split, url_join, normalise_url, append_slash
 
-
 class OmniSync:
     """The main program class."""
     def __init__(self):
@@ -35,11 +34,16 @@ class OmniSync:
         # Initialise the logger.
         logging.basicConfig(level=logging.INFO, format='%(message)s')
 
+        transp_dir = "transports"
+        # If we have been imported, get the path.
+        if __name__ != "__main__":
+            basedir = os.path.join(os.path.dirname(os.path.join(os.getcwd(), __file__)), transp_dir)
+        else:
+            basedir = transp_dir
         # Import the I/O module classes.
-        module_path = "transports"
-        for module in os.listdir(module_path):
+        for module in os.listdir(basedir):
             if module.endswith("transport.py"):
-                module_name = module_path + "." + module[:-3]
+                module_name = transp_dir + "." + module[:-3]
                 logging.debug("Importing \"%s\"." % (module_name))
                 try:
                     __import__(module_name)
