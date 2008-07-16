@@ -2,6 +2,7 @@
 
 from distutils.core import setup
 from omnisync.version import VERSION
+import platform
 
 if platform.system() == "Windows":
     scripts = ["scripts/omnisync.bat"]
