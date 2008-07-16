@@ -1,11 +1,11 @@
 """Virtual filesystem access module."""
 
-from transports.transportmount import TransportInterface
+from omnisync.transportmount import TransportInterface
+from omnisync.fileobject import FileObject
+from omnisync import urlfunctions
 
 import pickle
-import urlfunctions
 
-from fileobject import FileObject
 
 class VirtualTransport(TransportInterface):
     """Virtual filesystem access class."""

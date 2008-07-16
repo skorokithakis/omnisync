@@ -8,13 +8,13 @@ import optparse
 import time
 import locale
 
-from configuration import Configuration
-from progress import Progress
+from omnisync.configuration import Configuration
+from omnisync.progress import Progress
 
-from version import VERSION
-from transports.transportmount import TransportInterface
-from fileobject import FileObject
-from urlfunctions import url_splice, url_split, url_join, normalise_url, append_slash
+from omnisync.version import VERSION
+from omnisync.transportmount import TransportInterface
+from omnisync.fileobject import FileObject
+from omnisync.urlfunctions import url_splice, url_split, url_join, normalise_url, append_slash
 
 class OmniSync:
     """The main program class."""
@@ -37,13 +37,16 @@ class OmniSync:
         transp_dir = "transports"
         # If we have been imported, get the path.
         if __name__ != "__main__":
-            basedir = os.path.join(os.path.dirname(os.path.join(os.getcwd(), __file__)), transp_dir)
+            os_dir = os.path.dirname(os.path.join(os.getcwd(), __file__))
+            basedir = os.path.join(os_dir, transp_dir)
+            sys.path.append(os_dir)
         else:
             basedir = transp_dir
+
         # Import the I/O module classes.
         for module in os.listdir(basedir):
-            if module.endswith("transport.py"):
-                module_name = transp_dir + "." + module[:-3]
+            if module.endswith(".py"):
+                module_name = "omnisync." + transp_dir + "." + module[:-3]
                 logging.debug("Importing \"%s\"." % (module_name))
                 try:
                     __import__(module_name)

@@ -1,10 +1,10 @@
 """S3 transport module."""
 
-from transports.transportmount import TransportInterface
-from fileobject import FileObject
+from omnisync.transportmount import TransportInterface
+from omnisync.fileobject import FileObject
+from omnisync import urlfunctions
 
 import getpass
-import urlfunctions
 import time
 import errno
 
@@ -20,14 +20,14 @@ class S3Transport(TransportInterface):
     uses_hostname = True
     # listdir_attributes is a set that contains the file attributes that listdir()
     # supports.
-    listdir_attributes = set(("size"))
+    listdir_attributes = set(("size", ))
     # Conversely, for getattr().
     getattr_attributes = set()
     # List the attributes setattr() can set.
     setattr_attributes = set()
     # Define attributes that can be used to decide whether a file has been changed
     # or not.
-    evaluation_attributes = set(("size",))
+    evaluation_attributes = set(("size", ))
     # The preferred buffer size for reads/writes.
     buffer_size = 2**15
 

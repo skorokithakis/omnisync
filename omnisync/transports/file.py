@@ -1,10 +1,10 @@
 """Plain file access module."""
 
-from transports.transportmount import TransportInterface
-from fileobject import FileObject
+from omnisync.transportmount import TransportInterface
+from omnisync.fileobject import FileObject
+from omnisync import urlfunctions
 
 import platform
-import urlfunctions
 import os
 import time
 import errno
@@ -13,6 +13,7 @@ if platform.system() == "Windows":
     OSERROR = WindowsError
 else:
     OSERROR = OSError
+
 
 class FileTransport(TransportInterface):
     """Plain file access class."""

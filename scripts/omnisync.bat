@@ -5,7 +5,7 @@ goto exit
 
 """
 # -------------------- Python section --------------------
-from omnisync.omnisync import OmniSync, parse_arguments
+from omnisync.main import OmniSync, parse_arguments
 from omnisync.configuration import Configuration
 
 osync = OmniSync()
@@ -17,4 +17,3 @@ osync.sync(args[0], args[1])
 DosExitLabel = """
 :exit
 rem """
-

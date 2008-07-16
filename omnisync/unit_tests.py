@@ -2,7 +2,7 @@
 """omnisync unit tests."""
 
 import unittest
-import urlfunctions
+import omnisync.urlfunctions
 
 class Tests(unittest.TestCase):
     """Various omnisync unit tests."""

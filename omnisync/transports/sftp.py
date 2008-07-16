@@ -1,12 +1,13 @@
 """SFTP transport module."""
 
-from transports.transportmount import TransportInterface
-from fileobject import FileObject
+from omnisync.transportmount import TransportInterface
+from omnisync.fileobject import FileObject
+from omnisync import urlfunctions
 
 import getpass
-import urlfunctions
 import time
 import errno
+
 
 class SFTPTransport(TransportInterface):
     """SFTP transport class."""
