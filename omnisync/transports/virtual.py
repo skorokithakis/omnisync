@@ -53,7 +53,7 @@ class VirtualTransport(TransportInterface):
         """
         return ()
 
-    def connect(self, url):
+    def connect(self, url, config):
         """Unpickle the filesystem dictionary."""
         self._storage = urlfunctions.url_split(url).hostname
         # If the storage is in-memory only, don't do anything.

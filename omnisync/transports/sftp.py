@@ -49,8 +49,10 @@ class SFTPTransport(TransportInterface):
         """
         return ()
 
-    def connect(self, url):
+    def connect(self, url, config):
         """Initiate a connection to the remote host."""
+        options = config.full_options
+        
         # Make the import global.
         global paramiko
         try:
@@ -63,13 +65,23 @@ class SFTPTransport(TransportInterface):
         if not url.port:
             url.port = 22
         self._transport = paramiko.Transport((url.hostname, url.port))
+        
+        username = url.username
         if not url.username:
-            url.username = getpass.getuser()
+            if hasattr(options, "username"):
+                username = options.username
+            else:
+                url.username = getpass.getuser()
+        
+        password = url.password
         if not url.password:
-            url.password = getpass.getpass(
-                "SFTP: Please enter the password for %s@%s:" % (url.username, url.hostname)
+            if hasattr(options, "password"):
+                password = options.password
+            else:
+                password = getpass.getpass(
+                    "SFTP: Please enter the password for %s@%s:" % (url.username, url.hostname)
                 )
-        self._transport.connect(username=url.username, password=url.password)
+        self._transport.connect(username=username, password=password)
         self._connection = paramiko.SFTPClient.from_transport(self._transport)
 
     def disconnect(self):

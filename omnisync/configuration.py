@@ -46,3 +46,7 @@ class Configuration:
                 self.exclude_dirs = re.compile("")
         else:
             self.include_dirs = re.compile("^$")
+        
+        # access to remaining options and any options
+        # that were set by plugins.
+        self.full_options = options

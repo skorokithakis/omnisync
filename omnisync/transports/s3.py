@@ -49,7 +49,7 @@ class S3Transport(TransportInterface):
         """
         return ()
 
-    def connect(self, url):
+    def connect(self, url, config):
         """Initiate a connection to the remote host."""
         url = urlfunctions.url_split(url)
         if not url.username:

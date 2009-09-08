@@ -136,12 +136,12 @@ class OmniSync:
 
         # Give the transports a chance to connect to their servers.
         try:
-            self.source_transport.connect(self.source)
+            self.source_transport.connect(self.source, self.config)
         except:
             print "Connection to source failed, exiting..."
             sys.exit(1)
         try:
-            self.destination_transport.connect(self.destination)
+            self.destination_transport.connect(self.destination, self.config)
         except:
             print "Connection to destination failed, exiting..."
             sys.exit(1)

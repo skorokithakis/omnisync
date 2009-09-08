@@ -56,7 +56,7 @@ class FileTransport(TransportInterface):
         """
         return ()
 
-    def connect(self, url):
+    def connect(self, url, config):
         """This method does nothing, since we don't need to connect to the
            filesystem."""
 
