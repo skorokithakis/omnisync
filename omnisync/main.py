@@ -18,7 +18,7 @@ from omnisync.urlfunctions import url_splice, url_split, url_join, normalise_url
 
 log = logging.getLogger("omnisync.main")
 
-class OmniSync:
+class OmniSync(object):
     """The main program class."""
     def __init__(self):
         """Initialise various program structures."""
@@ -454,7 +454,7 @@ class OmniSync:
         self.destination_transport.close()
         self.source_transport.close()
     
-    def report_file_progress(prog, bytes_done):
+    def report_file_progress(self, prog, bytes_done):
         """Displays the progress of a file copy. Displays
         the output via print.
         
