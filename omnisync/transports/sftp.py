@@ -39,7 +39,11 @@ class SFTPTransport(TransportInterface):
     def _get_filename(self, url):
         """Retrieve the local filename from a given URL."""
         split_url = urlfunctions.url_split(url, uses_hostname=self.uses_hostname)
-        return split_url.path
+        # paths are relative unless they start with two //
+        path = split_url.path
+        if len(path) > 1 and path.startswith("/"):
+            path = path[1:]
+        return path
 
     # Transports should also implement the following methods:
     def add_options(self):
