@@ -192,9 +192,11 @@ class OmniSync(object):
             if not self.config.dry_run:
                 self.destination_transport.mkdir(dest_dir_url)
                 # Populate the item's attributes for the remote directory so we can set them.
-                source.populate_attributes((self.max_evaluation_attributes &
-                                            self.destination_transport.setattr_attributes) |
-                                           self.config.requested_attributes)
+                attribute_set = self.max_evaluation_attributes & \
+                                self.destination_transport.setattr_attributes
+                attribute_set = attribute_set | self.config.requested_attributes
+                attribute_set = attribute_set ^ self.config.exclude_attributes
+                source.populate_attributes(attribute_set)
 
                 self.set_destination_attributes(dest_dir_url, source.attributes)
             dest_dir_list = []
@@ -557,7 +559,8 @@ def parse_arguments(omnisync):
 
 if __name__ == "__main__":
     # Initialise the logger.
-    logging.basicConfig(level=logging.INFO, format='%(message)s')
+    logging.basicConfig(level=logging.INFO, format='%(message)s',
+        stream=sys.stdout)
 
     omnisync = OmniSync()
     (options, args) = parse_arguments(omnisync)
