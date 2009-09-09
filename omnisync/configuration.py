@@ -3,17 +3,20 @@
 import logging
 import re
 
+log = logging.getLogger("omnisync")
+
 class Configuration:
     """Hold various configuration options."""
 
     def __init__(self, options):
         """Retrieve the configuration from the parser options."""
         if options.verbosity == 0:
-            logging.getLogger().setLevel(logging.ERROR)
+            log.setLevel(logging.ERROR)
         elif options.verbosity == 1:
-            logging.getLogger().setLevel(logging.INFO)
+            log.setLevel(logging.INFO)
         elif options.verbosity == 2:
-            logging.getLogger().setLevel(logging.DEBUG)
+            log.setLevel(logging.DEBUG)
+            log.debug("Debug logging on")
         self.delete = options.delete
         if options.attributes:
             self.requested_attributes = set(options.attributes)
@@ -46,3 +49,10 @@ class Configuration:
                 self.exclude_dirs = re.compile("")
         else:
             self.include_dirs = re.compile("^$")
+        
+        # access to remaining options and any options
+        # that were set by plugins.
+        self.full_options = options
+        
+        self.exclude_attributes = set()
+        

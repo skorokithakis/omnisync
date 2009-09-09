@@ -16,7 +16,9 @@ from omnisync.transportmount import TransportInterface
 from omnisync.fileobject import FileObject
 from omnisync.urlfunctions import url_splice, url_split, url_join, normalise_url, append_slash
 
-class OmniSync:
+log = logging.getLogger("omnisync.main")
+
+class OmniSync(object):
     """The main program class."""
     def __init__(self):
         """Initialise various program structures."""
@@ -31,9 +33,6 @@ class OmniSync:
         self.file_counter = 0
         self.bytes_total = 0
 
-        # Initialise the logger.
-        logging.basicConfig(level=logging.INFO, format='%(message)s')
-
         transp_dir = "transports"
         # If we have been imported, get the path.
         if __name__ != "__main__":
@@ -47,7 +46,7 @@ class OmniSync:
         for module in os.listdir(basedir):
             if module.endswith(".py"):
                 module_name = "omnisync." + transp_dir + "." + module[:-3]
-                logging.debug("Importing \"%s\"." % (module_name))
+                log.debug("Importing \"%s\"." % (module_name))
                 try:
                     __import__(module_name)
                 except ImportError:
@@ -58,10 +57,14 @@ class OmniSync:
         for transport in TransportInterface.transports:
             for protocol in transport.protocols:
                 if protocol in self.transports:
-                    logging.warning("Protocol %s already handled, ignoring." % protocol)
+                    log.warning("Protocol %s already handled, ignoring." % protocol)
                 else:
                     self.transports[protocol] = transport
-
+    
+    def exit(self, return_code):
+        """Ends the sync, with the return_code provided."""
+        sys.exit(return_code)
+        
     def add_options(self, parser):
         """Set plugin options on the command-line parser."""
         for transport in self.transports.values():
@@ -73,13 +76,13 @@ class OmniSync:
     def check_locations(self):
         """Check that the two locations are suitable for synchronisation."""
         if url_split(self.source).get_dict().keys == ["scheme"]:
-            logging.error("You need to specify something more than that for the source.")
+            log.error("You need to specify something more than that for the source.")
             return False
         elif url_split(self.source).get_dict().keys == ["scheme"]:
-            logging.error("You need to specify more information than that for the destination.")
+            log.error("You need to specify more information than that for the destination.")
             return False
         elif not self.source_transport.exists(self.source):
-            logging.error("The source location \"%s\" does not exist, aborting." %
+            log.error("The source location \"%s\" does not exist, aborting." %
                           self.source)
             return False
 
@@ -87,25 +90,25 @@ class OmniSync:
         source_isdir = self.source_transport.isdir(self.source)
         leave = False
         if self.source.startswith(self.destination) and source_isdir:
-            logging.error("The destination directory is a parent of the source directory.")
+            log.error("The destination directory is a parent of the source directory.")
             leave = True
         elif not hasattr(self.source_transport, "read"):
-            logging.error("The source protocol is write-only.")
+            log.error("The source protocol is write-only.")
             leave = True
         elif not hasattr(self.destination_transport, "write"):
-            logging.error("The destination protocol is read-only.")
+            log.error("The destination protocol is read-only.")
             leave = True
         elif not hasattr(self.destination_transport, "remove") and self.config.delete:
-            logging.error("The destination protocol does not support file deletion.")
+            log.error("The destination protocol does not support file deletion.")
             leave = True
         elif self.config.requested_attributes - self.source_transport.getattr_attributes:
-            logging.error("Requested attributes cannot be read: %s." %
+            log.error("Requested attributes cannot be read: %s." %
                           ", ".join(x for x in self.config.requested_attributes - \
                                     self.source_transport.getattr_attributes)
                           )
             leave = True
         elif self.config.requested_attributes - self.destination_transport.setattr_attributes:
-            logging.error("Requested attributes cannot be set: %s." %
+            log.error("Requested attributes cannot be set: %s." %
                           ", ".join(x for x in self.config.requested_attributes - \
                                     self.destination_transport.setattr_attributes)
                           )
@@ -126,25 +129,25 @@ class OmniSync:
         try:
             self.source_transport = self.transports[url_split(self.source).scheme]()
         except KeyError:
-            logging.error("Protocol not supported: %s." % url_split(self.source).scheme)
+            log.error("Protocol not supported: %s." % url_split(self.source).scheme)
             return
         try:
             self.destination_transport = self.transports[url_split(self.destination).scheme]()
         except KeyError:
-            logging.error("Protocol not supported: %s." % url_split(self.destination).scheme)
+            log.error("Protocol not supported: %s." % url_split(self.destination).scheme)
             return
 
         # Give the transports a chance to connect to their servers.
         try:
-            self.source_transport.connect(self.source)
+            self.source_transport.connect(self.source, self.config)
         except:
-            print "Connection to source failed, exiting..."
-            sys.exit(1)
+            log.error("Connection to source failed, exiting...")
+            self.exit(1)
         try:
-            self.destination_transport.connect(self.destination)
+            self.destination_transport.connect(self.destination, self.config)
         except:
-            print "Connection to destination failed, exiting..."
-            sys.exit(1)
+            log.error("Connection to destination failed, exiting...")
+            self.exit(1)
 
         # These are the most attributes we can expect from getattr calls in these two protocols.
         self.max_attributes = (self.source_transport.getattr_attributes &
@@ -154,7 +157,7 @@ class OmniSync:
                                           self.destination_transport.evaluation_attributes)
 
         if not self.check_locations():
-            sys.exit(1)
+            self.exit(1)
 
         # Begin the actual synchronisation.
         self.recurse()
@@ -167,7 +170,7 @@ class OmniSync:
             bps = locale.format("%d", int(self.bytes_total / total_time), True)
         except ZeroDivisionError:
             bps = "inf"
-        logging.info("Copied %s files (%s bytes) in %s sec (%s Bps)." % (
+        log.info("Copied %s files (%s bytes) in %s sec (%s Bps)." % (
                       locale.format("%d", self.file_counter, True),
                       locale.format("%d", self.bytes_total, True),
                       locale.format("%.2f", total_time, True),
@@ -189,9 +192,11 @@ class OmniSync:
             if not self.config.dry_run:
                 self.destination_transport.mkdir(dest_dir_url)
                 # Populate the item's attributes for the remote directory so we can set them.
-                source.populate_attributes((self.max_evaluation_attributes &
-                                            self.destination_transport.setattr_attributes) |
-                                           self.config.requested_attributes)
+                attribute_set = self.max_evaluation_attributes & \
+                                self.destination_transport.setattr_attributes
+                attribute_set = attribute_set | self.config.requested_attributes
+                attribute_set = attribute_set ^ self.config.exclude_attributes
+                source.populate_attributes(attribute_set)
 
                 self.set_destination_attributes(dest_dir_url, source.attributes)
             dest_dir_list = []
@@ -209,7 +214,7 @@ class OmniSync:
             if url in dest_paths and dest_paths[url].isdir == item.isdir:
                 # ...if it's a directory, set its attributes as well...
                 if dest_paths[url].isdir:
-                    logging.info("Setting attributes for %s..." % url)
+                    log.info("Setting attributes for %s..." % url)
                     item.populate_attributes(self.max_evaluation_attributes |
                                              self.config.requested_attributes)
                     self.set_destination_attributes(dest_paths[url].url, item.attributes)
@@ -225,10 +230,10 @@ class OmniSync:
             for item in dest_paths.values():
                 if item.isdir:
                     if self.config.recursive:
-                        logging.info("Deleting destination directory %s..." % item)
+                        log.info("Deleting destination directory %s..." % item)
                         self.recursively_delete(item)
                 else:
-                    logging.info("Deleting destination file %s..." % item)
+                    log.info("Deleting destination file %s..." % item)
                     self.destination_transport.remove(item.url)
 
         if self.config.dry_run:
@@ -298,12 +303,12 @@ class OmniSync:
         while directory_stack:
             # TODO: Rethink the assumption that a file cannot have the same name as a directory.
             item = directory_stack.pop()
-            logging.debug("URL %s is %sa directory." % \
+            log.debug("URL %s is %sa directory." % \
                           (item.url, not item.isdir and "not " or ""))
             if item.isdir:
                 # Don't skip the first directory.
                 if not self.config.recursive and item.url != self.source:
-                    logging.info("Skipping directory %s..." % item)
+                    log.info("Skipping directory %s..." % item)
                     continue
                 # Obtain a directory list.
                 new_dir_list = []
@@ -311,15 +316,15 @@ class OmniSync:
                     if self.include_file(new_file):
                         new_dir_list.append(new_file)
                     else:
-                        logging.debug("Skipping %s..." % (new_file))
+                        log.debug("Skipping %s..." % (new_file))
                 dest = url_splice(self.source, item.url, self.destination)
                 dest = FileObject(self.destination_transport, dest)
-                logging.debug("Comparing directories %s and %s..." % (item.url, dest.url))
+                log.debug("Comparing directories %s and %s..." % (item.url, dest.url))
                 self.compare_directories(item, new_dir_list, dest.url)
                 directory_stack.extend(new_dir_list)
             else:
                 dest_url = url_splice(self.source, item.url, self.destination)
-                logging.debug("Destination URL is %s." % dest_url)
+                log.debug("Destination URL is %s." % dest_url)
                 dest = FileObject(self.destination_transport, dest_url)
                 self.compare_and_copy(item, dest)
 
@@ -340,7 +345,7 @@ class OmniSync:
         if src_difference:
             # If the set of useful attributes we have is smaller than the set of attributes the
             # user requested and the ones we can gather through getattr(), get the rest.
-            logging.debug("Source getattr for file %s and arguments %s deemed necessary." % \
+            log.debug("Source getattr for file %s and arguments %s deemed necessary." % \
                           (source, src_difference))
             source.populate_attributes(src_difference)
             # We should now have all the attributes we're interested in, both for evaluating if
@@ -351,22 +356,22 @@ class OmniSync:
                            destination.attribute_set) & self.max_evaluation_attributes
         if dest_difference:
             # Same for the destination.
-            logging.debug("Destination getattr for %s deemed necessary." % destination)
+            log.debug("Destination getattr for %s deemed necessary." % destination)
             destination.populate_attributes(dest_difference)
 
         # Compare the evaluation keys that are common in both dictionaries. If one is different,
         # copy the file.
         evaluation_attributes = source.attribute_set & destination.attribute_set & \
                                 self.max_evaluation_attributes
-        logging.debug("Checking evaluation attributes %s..." % evaluation_attributes)
+        log.debug("Checking evaluation attributes %s..." % evaluation_attributes)
         for key in evaluation_attributes:
             if getattr(source, key) != getattr(destination, key):
-                logging.debug("Source and destination %s was different (%s vs %s)." %\
+                log.debug("Source and destination %s was different (%s vs %s)." %\
                               (key, getattr(source, key), getattr(destination, key)))
                 if self.config.update and destination.mtime > source.mtime:
-                    logging.info("Destination file is newer and --update specified, skipping...")
+                    log.info("Destination file is newer and --update specified, skipping...")
                     break
-                logging.info("Copying \"%s\"\n        to \"%s\"..." % (source, destination))
+                log.info("Copying \"%s\"\n        to \"%s\"..." % (source, destination))
                 try:
                     self.copy_file(source, destination)
                 except IOError:
@@ -377,7 +382,7 @@ class OmniSync:
                     break
         else:
             # The two files are identical, skip them...
-            logging.info("Files \"%s\"\n      and \"%s\" are identical, skipping..." %
+            log.info("Files \"%s\"\n      and \"%s\" are identical, skipping..." %
                          (source, destination))
             # ...but set the attributes anyway.
             self.set_destination_attributes(destination.url, source.attributes)
@@ -422,39 +427,52 @@ class OmniSync:
         try:
             self.source_transport.open(source.url, "rb")
         except IOError:
-            logging.error("Could not open %s, skipping..." % source)
+            log.error("Could not open %s, skipping..." % source)
             raise
         # Remove the file before copying.
         self.destination_transport.remove(destination.url)
         try:
             self.destination_transport.open(destination.url, "wb")
         except IOError:
-            logging.error("Could not open %s, skipping..." % destination)
+            log.error("Could not open %s, skipping..." % destination)
             self.destination_transport.close()
             self.source_transport.close()
             raise
+            
         if hasattr(source, "size"):
             prog = Progress(source.size)
+        else:
+            prog = None
+            
         bytes_done = 0
         data = self.source_transport.read(buffer_size)
         while data:
             if not bytes_done % 5:
-                # The source file might not have a size attribute.
-                if hasattr(source, "size"):
-                    done = prog.progress(bytes_done)
-                    print "Copied %(item)s/%(items)s bytes (%(percentage)s%%) " \
-                    "%(elapsed_time)s/%(total_time)s.\r" % done,
-                else:
-                    print "Copied %s bytes.\r" % (bytes_done),
+                self.report_file_progress(prog, bytes_done)
             bytes_done += len(data)
             self.destination_transport.write(data)
             data = self.source_transport.read(buffer_size)
         self.bytes_total += bytes_done
         self.destination_transport.close()
         self.source_transport.close()
+    
+    def report_file_progress(self, prog, bytes_done):
+        """Displays the progress of a file copy. Displays
+        the output via print.
+        
+            prog - Progress instance to compute the progress
+            bytes_done - how much of the file has been transferred already.
+        """
+        # The source file might not have a size attribute.
+        if prog:
+            done = prog.progress(bytes_done)
+            print "Copied %(item)s/%(items)s bytes (%(percentage)s%%) " \
+            "%(elapsed_time)s/%(total_time)s.\r" % done,
+        else:
+            print "Copied %s bytes.\r" % (bytes_done),
 
 
-def parse_arguments(osinst):
+def parse_arguments(omnisync):
     """Parse the command-line arguments."""
     parser = optparse.OptionParser(
         usage="%prog [options] <source> <destination>",
@@ -532,20 +550,19 @@ def parse_arguments(osinst):
                       metavar="PATTERN"
                       )
     # Allow the plugins to set their own options.
-    osinst.add_options(parser)
+    omnisync.add_options(parser)
     (options, args) = parser.parse_args()
     if len(args) != 2:
         parser.print_help()
         sys.exit()
     return options, args
 
-omnisync = OmniSync()
+if __name__ == "__main__":
+    # Initialise the logger.
+    logging.basicConfig(level=logging.INFO, format='%(message)s',
+        stream=sys.stdout)
 
-def run():
-    """Run the main script."""
+    omnisync = OmniSync()
     (options, args) = parse_arguments(omnisync)
     omnisync.config = Configuration(options)
     omnisync.sync(args[0], args[1])
-
-if __name__ == "__main__":
-    run()
