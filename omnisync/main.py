@@ -557,7 +557,7 @@ def parse_arguments(omnisync):
         sys.exit()
     return options, args
 
-if __name__ == "__main__":
+def main():
     # Initialise the logger.
     logging.basicConfig(level=logging.INFO, format='%(message)s',
         stream=sys.stdout)
@@ -566,3 +566,6 @@ if __name__ == "__main__":
     (options, args) = parse_arguments(omnisync)
     omnisync.config = Configuration(options)
     omnisync.sync(args[0], args[1])
+
+if __name__ == "__main__":
+    main()
