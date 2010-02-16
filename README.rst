@@ -3,7 +3,7 @@ License
 omnisync is available under the Simplified BSD License.
 
 Description
------
+-----------
 omnisync is a universal file synchroniser and backup program (think
 rsync) that supports multiple transport systems (such as plain files,
 sftp, s3 and virtual, currently, and support for ftp, http, et al is
@@ -13,7 +13,7 @@ bandwidth-efficient. It is available for Linux, Windows and Mac.
 As an example, to sync files from an S3 volume to an sftp server, all
 you need to do is this:
 
-omnisync -r s3://s3bucket/ sftp://myserver/mydir
+    omnisync -r s3://s3bucket/ sftp://myserver/mydir
 
 and omnisync will synchronize the two directories. Of course, what
 makes omnisync special is its extensibility. You can easily write a
