@@ -15,6 +15,7 @@ setup(name="omnisync",
     license="Simplified BSD License",
     url="http://launchpad.net/omnisync/",
     packages=["omnisync", "omnisync.transports"],
+    zip_safe=False,
     requires=["paramiko", "boto"],
     entry_points = { 
     'console_scripts':[
